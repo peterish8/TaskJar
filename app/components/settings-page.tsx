@@ -88,7 +88,7 @@ export default function SettingsPage({
     }
   };
 
-  const handlePasswordRecovery = () => {
+  const handlePasswordRecovery = async () => {
     if (
       recoveryAnswer.toLowerCase().trim() ===
       settings.parentLock.securityAnswer.toLowerCase().trim()
@@ -170,7 +170,7 @@ export default function SettingsPage({
 
     playSound("click");
     const reader = new FileReader();
-    reader.onload = (e) => {
+    reader.onload = async (e) => {
       try {
         const importedData = JSON.parse(e.target?.result as string);
 
@@ -359,15 +359,15 @@ export default function SettingsPage({
                     settings.preferences.soundEnabled ? "default" : "outline"
                   }
                   size="sm"
-                  onClick={() => {
+                  onClick={async () => {
                     playSound("click");
                     await updateSettings({
                       ...settings,
                       preferences: {
                         ...settings.preferences,
-                        soundEnabled: !prev.preferences.soundEnabled,
+                        soundEnabled: !settings.preferences.soundEnabled,
                       },
-                    }));
+                    });
                   }}
                 >
                   {settings.preferences.soundEnabled ? "On" : "Off"}
@@ -569,7 +569,7 @@ export default function SettingsPage({
                     />
                   </div>
                   <Button
-                    onClick={() => {
+                    onClick={async () => {
                       playSound("click");
                       if (
                         parentPassword.trim() &&
@@ -577,14 +577,15 @@ export default function SettingsPage({
                         securityAnswer.trim()
                       ) {
                         await updateSettings({
-                          ...prev,
+                          ...settings,
                           parentLock: {
+                            ...settings.parentLock,
                             enabled: true,
                             password: parentPassword,
                             securityQuestion: securityQuestion,
                             securityAnswer: securityAnswer,
                           },
-                        }));
+                        });
                         setParentPassword("");
                         setSecurityQuestion("");
                         setSecurityAnswer("");
@@ -650,11 +651,11 @@ export default function SettingsPage({
                               min="1"
                               max="100"
                               value={settings.xpValues.light || 5}
-                              onChange={(e) =>
+                              onChange={async (e) =>
                                 await updateSettings({
-                                  ...prev,
+                                  ...settings,
                                   xpValues: {
-                                    ...prev.xpValues,
+                                    ...settings.xpValues,
                                     light: Math.max(
                                       1,
                                       Math.min(
@@ -663,7 +664,7 @@ export default function SettingsPage({
                                       )
                                     ),
                                   },
-                                }))
+                                })
                               }
                               className="w-20 bg-white/10 border-white/20 text-center"
                             />
@@ -677,11 +678,11 @@ export default function SettingsPage({
                               min="1"
                               max="100"
                               value={settings.xpValues.standard || 10}
-                              onChange={(e) =>
+                              onChange={async (e) =>
                                 await updateSettings({
-                                  ...prev,
+                                  ...settings,
                                   xpValues: {
-                                    ...prev.xpValues,
+                                    ...settings.xpValues,
                                     standard: Math.max(
                                       1,
                                       Math.min(
@@ -690,7 +691,7 @@ export default function SettingsPage({
                                       )
                                     ),
                                   },
-                                }))
+                                })
                               }
                               className="w-20 bg-white/10 border-white/20 text-center"
                             />
@@ -704,11 +705,11 @@ export default function SettingsPage({
                               min="1"
                               max="100"
                               value={settings.xpValues.challenging || 15}
-                              onChange={(e) =>
+                              onChange={async (e) =>
                                 await updateSettings({
-                                  ...prev,
+                                  ...settings,
                                   xpValues: {
-                                    ...prev.xpValues,
+                                    ...settings.xpValues,
                                     challenging: Math.max(
                                       1,
                                       Math.min(
@@ -717,7 +718,7 @@ export default function SettingsPage({
                                       )
                                     ),
                                   },
-                                }))
+                                })
                               }
                               className="w-20 bg-white/10 border-white/20 text-center"
                             />
@@ -731,9 +732,9 @@ export default function SettingsPage({
                               min="50"
                               max="500"
                               value={settings.jarTarget || 100}
-                              onChange={(e) =>
+                              onChange={async (e) =>
                                 await updateSettings({
-                                  ...prev,
+                                  ...settings,
                                   jarTarget: Math.max(
                                     50,
                                     Math.min(
@@ -741,7 +742,7 @@ export default function SettingsPage({
                                       Number.parseInt(e.target.value) || 100
                                     )
                                   ),
-                                }))
+                                })
                               }
                               className="w-20 bg-white/10 border-white/20 text-center"
                             />

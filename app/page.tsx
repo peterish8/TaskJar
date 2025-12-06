@@ -238,53 +238,49 @@ export default function TaskJarApp() {
     oscillator.stop(audioContext.currentTime + 0.3);
   };
 
-  // Complete task
-  const completeTask = (taskId: string) => {
+  // Complete task with jar logic
+  const handleCompleteTask = async (taskId: string) => {
     const task = tasks.find((t) => t.id === taskId);
     if (!task || !currentJar) return;
 
     playSound("complete");
 
-    setTasks((prev) =>
-      prev.map((t) =>
-        t.id === taskId ? { ...t, completed: true, completedAt: Date.now() } : t
-      )
-    );
+    // Complete the task
+    await completeTask(taskId);
 
+    // Add task to current jar
+    await addTaskToJar(currentJar.id, taskId);
+
+    // Update jar XP
     const newXP = currentJar.currentXP + task.xpValue;
-    const updatedJar = {
-      ...currentJar,
+    const jarUpdates: Partial<Jar> = {
       currentXP: newXP,
-      tasks: [...currentJar.tasks, taskId],
     };
 
     if (newXP >= currentJar.targetXP) {
-      const completedJar = {
-        ...updatedJar,
-        completed: true,
-        completedAt: Date.now(),
-        currentXP: currentJar.targetXP,
-      };
+      // Complete current jar
+      jarUpdates.completed = true;
+      jarUpdates.completedAt = Date.now();
+      jarUpdates.currentXP = currentJar.targetXP;
 
-      const newJar: Jar = {
-        id: Date.now().toString(),
-        currentXP: newXP - currentJar.targetXP,
+      await updateJar(currentJar.id, jarUpdates);
+
+      // Create new jar with overflow XP
+      const overflowXP = newXP - currentJar.targetXP;
+      const newJarData = {
+        name: "My Jar",
+        currentXP: overflowXP,
         targetXP: settings.jarTarget,
         completed: false,
         tasks: [],
       };
 
-      setJars((prev) =>
-        prev
-          .map((j) => (j.id === currentJar.id ? completedJar : j))
-          .concat(newJar)
-      );
+      const newJar = await addJar(newJarData);
       setCurrentJar(newJar);
     } else {
-      setJars((prev) =>
-        prev.map((j) => (j.id === currentJar.id ? updatedJar : j))
-      );
-      setCurrentJar(updatedJar);
+      // Just update current jar
+      await updateJar(currentJar.id, jarUpdates);
+      setCurrentJar({ ...currentJar, ...jarUpdates });
     }
   };
 
@@ -425,7 +421,7 @@ export default function TaskJarApp() {
             updateTask={updateTask}
             addTasks={handleAddTasks}
             settings={settings}
-            completeTask={completeTask}
+            completeTask={handleCompleteTask}
             deleteTask={deleteTask}
             playSound={playSound}
           />

@@ -190,7 +190,7 @@ export default function WeeklyDumpPage({
     }
   };
 
-  const scheduleAllTasks = () => {
+  const scheduleAllTasks = async () => {
     if (weeklyTasks.length === 0) {
       return;
     }

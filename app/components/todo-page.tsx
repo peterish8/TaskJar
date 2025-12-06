@@ -95,7 +95,7 @@ export default function TodoPage({ tasks, updateTask, addTasks, settings, comple
      }
    }
 
-  const addTasksToList = (tasksToAdd: Partial<Task>[]) => {
+  const addTasksToList = async (tasksToAdd: Partial<Task>[]) => {
     playSound("click")
 
     const newTasks: Omit<Task, "id" | "completed" | "completedAt" | "createdAt">[] = tasksToAdd.map((task) => ({
