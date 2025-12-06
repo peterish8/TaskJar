@@ -47,18 +47,30 @@ export async function POST(req: NextRequest) {
     const response = await result.response;
     const text = await response.text();
 
-    const jsonResponse = JSON.parse(
-      text
-        .replace(/```json/g, "")
-        .replace(/```/g, "")
-        .trim()
-    );
+    console.log("AI Response:", text);
+
+    let jsonResponse;
+    try {
+      jsonResponse = JSON.parse(
+        text
+          .replace(/```json/g, "")
+          .replace(/```/g, "")
+          .trim()
+      );
+    } catch (parseError) {
+      console.error("Parse error:", parseError);
+      console.error("Raw text:", text);
+      return NextResponse.json(
+        { error: "Failed to parse AI response", rawText: text },
+        { status: 500 }
+      );
+    }
 
     return NextResponse.json(jsonResponse);
   } catch (error) {
     console.error("Error generating tasks:", error);
     return NextResponse.json(
-      { error: "Failed to generate tasks" },
+      { error: "Failed to generate tasks", details: error.message },
       { status: 500 }
     );
   }
