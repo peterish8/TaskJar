@@ -2,7 +2,7 @@
 import React from "react";
 import {
   loadDailyCompletion,
-  last7,
+  last7 as getLast7,
   streakCount,
   averagePct,
   hasAtLeastNDays,
@@ -68,7 +68,7 @@ const COLORS = [
 export default function AnalyticsPage() {
   const rows = loadDailyCompletion();
   const isEstablished = hasAtLeastNDays(rows, 7);
-  const week = last7(rows);
+  const week = getLast7(rows);
   const todayPct = week.length ? week[week.length - 1].completionPct : 0;
   const tasksCompletedSoFar = Math.round(
     week.reduce((acc, r) => acc + (r.completionPct > 0 ? 1 : 0), 0) * 1.5
