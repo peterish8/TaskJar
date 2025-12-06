@@ -1,19 +1,7 @@
-import { GoogleGenerativeAI } from "@google/generative-ai";
 import { NextRequest, NextResponse } from "next/server";
 
-const genAI = new GoogleGenerativeAI(
-  process.env.GOOGLE_GENERATIVE_AI_API_KEY || ""
-);
-
 export async function POST(req: NextRequest) {
-  // For development, skip authentication check
-  // const session = await getServerSession();
-  // if (!session) {
-  //   return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  // }
-
   if (!process.env.GOOGLE_GENERATIVE_AI_API_KEY) {
-    console.error("Missing GOOGLE_GENERATIVE_AI_API_KEY");
     return NextResponse.json(
       { error: "API key not configured" },
       { status: 500 }
@@ -30,24 +18,36 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+    const fullPrompt = `You are an expert task manager. Based on the user's input, generate a list of tasks.
+For each task, provide a name, a brief description, a priority, and a difficulty.
+The priority can be one of: "low", "medium", "high".
+The difficulty can be one of: "easy", "moderate", "hard".
 
-    const fullPrompt = `
-      You are an expert task manager. Based on the user's input, generate a list of tasks.
-      For each task, provide a name, a brief description, a priority, and a difficulty.
-      The priority can be one of: "low", "medium", "high".
-      The difficulty can be one of: "easy", "moderate", "hard".
-      
-      Return the output as a valid JSON array of objects. Each object should have the following properties: "name", "description", "priority", "difficulty".
-      
-      User input: "${prompt}"
-    `;
+Return the output as a valid JSON array of objects. Each object should have the following properties: "name", "description", "priority", "difficulty".
 
-    const result = await model.generateContent(fullPrompt);
-    const response = await result.response;
-    const text = await response.text();
+User input: "${prompt}"`;
 
-    console.log("AI Response:", text);
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${process.env.GOOGLE_GENERATIVE_AI_API_KEY}`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          contents: [{
+            parts: [{ text: fullPrompt }]
+          }]
+        })
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error(`API request failed: ${response.status}`);
+    }
+
+    const data = await response.json();
+    const text = data.candidates[0].content.parts[0].text;
 
     let jsonResponse;
     try {
@@ -58,8 +58,6 @@ export async function POST(req: NextRequest) {
           .trim()
       );
     } catch (parseError) {
-      console.error("Parse error:", parseError);
-      console.error("Raw text:", text);
       return NextResponse.json(
         { error: "Failed to parse AI response", rawText: text },
         { status: 500 }

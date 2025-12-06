@@ -1,9 +1,4 @@
-import { GoogleGenerativeAI } from "@google/generative-ai";
 import { NextRequest, NextResponse } from "next/server";
-
-const genAI = new GoogleGenerativeAI(
-  process.env.GOOGLE_GENERATIVE_AI_API_KEY || ""
-);
 
 export async function POST(req: NextRequest) {
   // For development, skip authentication check
@@ -37,8 +32,6 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-
     // Create a mapping of day names to ISO dates
     const dayToDateMap = weekWindow.map((isoDate, index) => {
       const date = new Date(isoDate);
@@ -46,32 +39,48 @@ export async function POST(req: NextRequest) {
       return { dayName, isoDate };
     });
 
-    const fullPrompt = `
-      You are an expert task manager. Based on the user's input, generate a list of tasks for the week.
-      
-      Available dates for this week:
-      ${dayToDateMap
-        .map(({ dayName, isoDate }) => `${dayName}: ${isoDate}`)
-        .join("\n")}
-      
-      For each task, provide:
-      - scheduledDate: one of the ISO dates above (YYYY-MM-DD format)
-      - name: a clear, concise task name
-      - description: a brief description (optional)
-      - priority: "low", "medium", or "high"
-      - difficulty: "easy", "moderate", or "hard"
-      
-      Distribute tasks evenly across the week. If the user mentions specific days, use the corresponding ISO date.
-      If no specific day is mentioned, distribute tasks logically across the week.
-      
-      Return the output as a valid JSON array of objects. Each object should have: "scheduledDate", "name", "description", "priority", "difficulty".
-      
-      User input: "${prompt}"
-    `;
+    const fullPrompt = `You are an expert task manager. Based on the user's input, generate a list of tasks for the week.
 
-    const result = await model.generateContent(fullPrompt);
-    const response = await result.response;
-    const text = await response.text();
+Available dates for this week:
+${dayToDateMap
+  .map(({ dayName, isoDate }) => `${dayName}: ${isoDate}`)
+  .join("\n")}
+
+For each task, provide:
+- scheduledDate: one of the ISO dates above (YYYY-MM-DD format)
+- name: a clear, concise task name
+- description: a brief description (optional)
+- priority: "low", "medium", or "high"
+- difficulty: "easy", "moderate", or "hard"
+
+Distribute tasks evenly across the week. If the user mentions specific days, use the corresponding ISO date.
+If no specific day is mentioned, distribute tasks logically across the week.
+
+Return the output as a valid JSON array of objects. Each object should have: "scheduledDate", "name", "description", "priority", "difficulty".
+
+User input: "${prompt}"`;
+
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${process.env.GOOGLE_GENERATIVE_AI_API_KEY}`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          contents: [{
+            parts: [{ text: fullPrompt }]
+          }]
+        })
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error(`API request failed: ${response.status}`);
+    }
+
+    const data = await response.json();
+    const text = data.candidates[0].content.parts[0].text;
 
     let jsonResponse;
     try {
