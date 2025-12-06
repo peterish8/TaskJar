@@ -65,6 +65,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: "google",
+        options: {
+          redirectTo: "https://taskjars.vercel.app/auth/callback"
+        }
       });
       if (error) throw error;
     } catch (error) {
