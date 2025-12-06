@@ -31,14 +31,14 @@ import { BarChart2 } from "lucide-react";
 
 interface SettingsPageProps {
   settings: AppSettings;
-  setSettings: React.Dispatch<React.SetStateAction<AppSettings>>;
+  updateSettings: (settings: AppSettings) => Promise<void>;
   playSound: (type: "click" | "complete" | "generate") => void;
   onClearAllData: () => void;
 }
 
 export default function SettingsPage({
   settings,
-  setSettings,
+  updateSettings,
   playSound,
   onClearAllData,
 }: SettingsPageProps) {
@@ -94,13 +94,13 @@ export default function SettingsPage({
       settings.parentLock.securityAnswer.toLowerCase().trim()
     ) {
       if (newPassword.trim()) {
-        setSettings((prev) => ({
-          ...prev,
+        await updateSettings({
+          ...settings,
           parentLock: {
-            ...prev.parentLock,
+            ...settings.parentLock,
             password: newPassword,
           },
-        }));
+        });
         setShowPasswordRecovery(false);
         setRecoveryAnswer("");
         setNewPassword("");
@@ -125,11 +125,11 @@ export default function SettingsPage({
     }
   };
 
-  const handleNameSave = () => {
-    setSettings((prev) => ({
-      ...prev,
+  const handleNameSave = async () => {
+    await updateSettings({
+      ...settings,
       studentName: tempName || "Student",
-    }));
+    });
     setShowNameEdit(false);
     playSound("click");
   };
@@ -189,7 +189,7 @@ export default function SettingsPage({
             "taskjar_settings",
             JSON.stringify(importedData.settings)
           );
-          setSettings(importedData.settings);
+          await updateSettings(importedData.settings);
         }
 
         playSound("complete");
@@ -361,10 +361,10 @@ export default function SettingsPage({
                   size="sm"
                   onClick={() => {
                     playSound("click");
-                    setSettings((prev) => ({
-                      ...prev,
+                    await updateSettings({
+                      ...settings,
                       preferences: {
-                        ...prev.preferences,
+                        ...settings.preferences,
                         soundEnabled: !prev.preferences.soundEnabled,
                       },
                     }));
@@ -576,7 +576,7 @@ export default function SettingsPage({
                         securityQuestion &&
                         securityAnswer.trim()
                       ) {
-                        setSettings((prev) => ({
+                        await updateSettings({
                           ...prev,
                           parentLock: {
                             enabled: true,
@@ -651,7 +651,7 @@ export default function SettingsPage({
                               max="100"
                               value={settings.xpValues.light || 5}
                               onChange={(e) =>
-                                setSettings((prev) => ({
+                                await updateSettings({
                                   ...prev,
                                   xpValues: {
                                     ...prev.xpValues,
@@ -678,7 +678,7 @@ export default function SettingsPage({
                               max="100"
                               value={settings.xpValues.standard || 10}
                               onChange={(e) =>
-                                setSettings((prev) => ({
+                                await updateSettings({
                                   ...prev,
                                   xpValues: {
                                     ...prev.xpValues,
@@ -705,7 +705,7 @@ export default function SettingsPage({
                               max="100"
                               value={settings.xpValues.challenging || 15}
                               onChange={(e) =>
-                                setSettings((prev) => ({
+                                await updateSettings({
                                   ...prev,
                                   xpValues: {
                                     ...prev.xpValues,
@@ -732,7 +732,7 @@ export default function SettingsPage({
                               max="500"
                               value={settings.jarTarget || 100}
                               onChange={(e) =>
-                                setSettings((prev) => ({
+                                await updateSettings({
                                   ...prev,
                                   jarTarget: Math.max(
                                     50,

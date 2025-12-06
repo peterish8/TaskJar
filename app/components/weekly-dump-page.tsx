@@ -37,49 +37,37 @@ import WeeklyHistoryDrawer from "./weekly-history-drawer";
 
 interface WeeklyDumpPageProps {
   settings: AppSettings;
-  setTasks: React.Dispatch<React.SetStateAction<Task[]>>;
+  weeklyTasks: WeeklyTask[];
+  addWeeklyTask: (task: Omit<WeeklyTask, "id" | "createdAt">) => Promise<WeeklyTask>;
+  updateWeeklyTask: (taskId: string, updates: Partial<WeeklyTask>) => Promise<WeeklyTask>;
+  deleteWeeklyTask: (taskId: string) => Promise<void>;
+  completeWeeklyTask: (taskId: string) => Promise<WeeklyTask>;
+  archivedWeeks: ArchivedWeek[];
+  archiveWeek: (weekData: ArchivedWeek) => Promise<void>;
+  handleAddTasks: (tasks: Omit<Task, "id" | "completed" | "completedAt" | "createdAt">[]) => Promise<void>;
   playSound: (type: "click" | "complete" | "generate") => void;
 }
 
 export default function WeeklyDumpPage({
   settings,
-  setTasks,
+  weeklyTasks,
+  addWeeklyTask,
+  updateWeeklyTask,
+  deleteWeeklyTask,
+  completeWeeklyTask,
+  archivedWeeks,
+  archiveWeek,
+  handleAddTasks,
   playSound,
 }: WeeklyDumpPageProps) {
   const [weeklyInput, setWeeklyInput] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
   const [selectedStartDate, setSelectedStartDate] = useState(getTodayISO());
-  const [weeklyTasks, setWeeklyTasks] = useState<WeeklyTask[]>([]);
-  const [archivedWeeks, setArchivedWeeks] = useState<ArchivedWeek[]>([]);
+  // weeklyTasks now comes from props
   const [showHistory, setShowHistory] = useState(false);
   const dateStripRef = useRef<HTMLDivElement>(null);
 
-  // Load data on mount
-  useEffect(() => {
-    const savedStartDate = load(
-      STORAGE_KEYS.SELECTED_START_DATE,
-      getTodayISO()
-    );
-    const savedWeeklyTasks = load(STORAGE_KEYS.WEEKLY_DUMP_TASKS, []);
-    const savedArchivedWeeks = load(STORAGE_KEYS.ARCHIVED_WEEKS, []);
-
-    setSelectedStartDate(savedStartDate);
-    setWeeklyTasks(savedWeeklyTasks);
-    setArchivedWeeks(savedArchivedWeeks);
-  }, []);
-
-  // Save data when it changes
-  useEffect(() => {
-    save(STORAGE_KEYS.SELECTED_START_DATE, selectedStartDate);
-  }, [selectedStartDate]);
-
-  useEffect(() => {
-    save(STORAGE_KEYS.WEEKLY_DUMP_TASKS, weeklyTasks);
-  }, [weeklyTasks]);
-
-  useEffect(() => {
-    save(STORAGE_KEYS.ARCHIVED_WEEKS, archivedWeeks);
-  }, [archivedWeeks]);
+  // Data is now managed by Supabase - no localStorage needed
 
   // Generate date strip (14-21 days around today)
   const generateDateStrip = () => {
@@ -219,7 +207,7 @@ export default function WeeklyDumpPage({
     };
 
     // Add to archived weeks
-    setArchivedWeeks((prev) => [archivedWeek, ...prev]);
+    await archiveWeek(archivedWeek);
 
     // Convert weekly tasks to daily tasks and add to main task list
     const dailyTasks: Task[] = weeklyTasks.map((task) => ({
@@ -246,22 +234,32 @@ export default function WeeklyDumpPage({
       scheduledFor: task.scheduledDate,
     }));
 
-    setTasks((prev) => [...prev, ...dailyTasks]);
+    // Add daily tasks to main tasks list
+    await handleAddTasks(dailyTasks);
 
-    // Clear weekly tasks
-    setWeeklyTasks([]);
+    // Clear weekly tasks - delete all weekly tasks from Supabase
+    for (const task of weeklyTasks) {
+      await deleteWeeklyTask(task.id);
+    }
     setWeeklyInput("");
   };
 
-  const updateTask = (taskId: string, updates: Partial<WeeklyTask>) => {
-    setWeeklyTasks((prev) =>
-      prev.map((task) => (task.id === taskId ? { ...task, ...updates } : task))
-    );
+  const updateTask = async (taskId: string, updates: Partial<WeeklyTask>) => {
+    try {
+      await updateWeeklyTask(taskId, updates);
+      playSound("click");
+    } catch (error) {
+      console.error('Failed to update weekly task:', error);
+    }
   };
 
-  const deleteTask = (taskId: string) => {
-    setWeeklyTasks((prev) => prev.filter((task) => task.id !== taskId));
-    playSound("click");
+  const deleteTask = async (taskId: string) => {
+    try {
+      await deleteWeeklyTask(taskId);
+      playSound("click");
+    } catch (error) {
+      console.error('Failed to delete weekly task:', error);
+    }
   };
 
   const scrollDateStrip = (direction: "left" | "right") => {

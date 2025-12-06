@@ -21,41 +21,9 @@ import type { AppSettings, Task, Jar } from "./types";
 import { useAuth } from "../contexts/AuthContext";
 import { useRouter } from "next/navigation";
 import { useCompletionUpdater } from "./hooks/useCompletionUpdater";
+import { useSupabaseData } from "../lib/use-supabase-data";
 import React, { lazy, Suspense } from "react";
 const AnalyticsPage = lazy(() => import("./analytics/page"));
-
-// Default settings
-const defaultSettings: AppSettings = {
-  studentName: "Student",
-  xpValues: {
-    light: 5,
-    standard: 10,
-    challenging: 15,
-  },
-  jarTarget: 100,
-  emojis: {
-    priority: {
-      urgent: "🔴",
-      scheduled: "🟡",
-      optional: "🟢",
-    },
-    difficulty: {
-      light: "🍃",
-      standard: "⚡",
-      challenging: "🔥",
-    },
-  },
-  parentLock: {
-    enabled: false,
-    password: "",
-    securityQuestion: "",
-    securityAnswer: "",
-  },
-  preferences: {
-    soundEnabled: true,
-    theme: "dark",
-  },
-};
 
 export default function TaskJarApp() {
   const { user, loading } = useAuth();
@@ -64,31 +32,62 @@ export default function TaskJarApp() {
   const [activeSection, setActiveSection] = useState<
     "todo" | "jars" | "settings" | "dump" | "analytics"
   >("todo");
-  const [tasks, setTasks] = useState<Task[]>([]);
-  const [jars, setJars] = useState<Jar[]>([]);
-  const [settings, setSettings] = useState<AppSettings>(defaultSettings);
   const [currentJar, setCurrentJar] = useState<Jar | null>(null);
   const [showHistory, setShowHistory] = useState(false);
   const [showAddTask, setShowAddTask] = useState(false);
 
-  // Calculate today's completion percentage for analytics
-  const calculateTodayCompletion = () => {
-    const today = new Date().toISOString().split("T")[0];
-    const todayTasks = tasks.filter((task) => {
-      const taskDate = task.scheduledFor
-        ? new Date(task.scheduledFor).toISOString().split("T")[0]
-        : new Date().toISOString().split("T")[0];
-      return taskDate === today;
-    });
+  // Use Supabase data hook
+  const {
+    isLoading: dataLoading,
+    error: dataError,
+    settings,
+    tasks,
+    jars,
+    weeklyTasks,
+    archivedWeeks,
+    updateSettings,
+    addTask,
+    updateTask,
+    deleteTask,
+    completeTask,
+    uncompleteTask,
+    addJar,
+    updateJar,
+    deleteJar,
+    addTaskToJar,
+    removeTaskFromJar,
+    addWeeklyTask,
+    updateWeeklyTask,
+    deleteWeeklyTask,
+    completeWeeklyTask,
+    archiveWeek,
+    updateDailyCompletion,
+    getTodayCompletion,
+  } = useSupabaseData();
 
-    if (todayTasks.length === 0) return null;
+  // Track completion for analytics - use Supabase data
+  useEffect(() => {
+    const updateCompletion = async () => {
+      if (!user || dataLoading) return;
 
-    const completedTasks = todayTasks.filter((task) => task.completed);
-    return Math.round((completedTasks.length / todayTasks.length) * 100);
-  };
+      const today = new Date().toISOString().split("T")[0];
+      const todayTasks = tasks.filter((task) => {
+        const taskDate = task.scheduledFor
+          ? new Date(task.scheduledFor).toISOString().split("T")[0]
+          : today;
+        return taskDate === today;
+      });
 
-  // Track completion for analytics
-  useCompletionUpdater(calculateTodayCompletion());
+      if (todayTasks.length === 0) return;
+
+      const completedTasks = todayTasks.filter((task) => task.completed);
+      const completionPct = Math.round((completedTasks.length / todayTasks.length) * 100);
+
+      await updateDailyCompletion(completionPct);
+    };
+
+    updateCompletion();
+  }, [tasks, user, dataLoading, updateDailyCompletion]);
 
   // Immediate redirect to landing if not authenticated
   useEffect(() => {
@@ -102,102 +101,37 @@ export default function TaskJarApp() {
     setIsHydrated(true);
   }, []);
 
+  // Wait for both auth and data loading to complete
+  const isAppLoading = loading || dataLoading || !isHydrated;
+
+  // Data loading is now handled by useSupabaseData hook
+  // Current jar management
   useEffect(() => {
-    if (!isHydrated || loading || !user) return;
-    const savedTasks = localStorage.getItem("taskjar_tasks");
-    const savedJars = localStorage.getItem("taskjar_jars");
-    const savedSettings = localStorage.getItem("taskjar_settings");
+    if (!user || dataLoading) return;
 
-    let loadedSettings = defaultSettings;
-    if (savedSettings) {
-      const parsedSettings = JSON.parse(savedSettings);
-      loadedSettings = {
-        ...defaultSettings,
-        ...parsedSettings,
-        xpValues: {
-          ...defaultSettings.xpValues,
-          ...parsedSettings.xpValues,
-        },
-        emojis: {
-          priority: {
-            ...defaultSettings.emojis.priority,
-            ...parsedSettings.emojis?.priority,
-          },
-          difficulty: {
-            ...defaultSettings.emojis.difficulty,
-            ...parsedSettings.emojis?.difficulty,
-          },
-        },
-        parentLock: {
-          ...defaultSettings.parentLock,
-          ...parsedSettings.parentLock,
-        },
-        preferences: {
-          ...defaultSettings.preferences,
-          ...parsedSettings.preferences,
-        },
-      };
-    }
-    setSettings(loadedSettings);
-
-    if (savedTasks) setTasks(JSON.parse(savedTasks));
-
-    if (savedJars) {
-      const parsedJars = JSON.parse(savedJars);
-      setJars(parsedJars);
-      const current = parsedJars.find((jar: Jar) => !jar.completed);
-      if (current) {
-        // Ensure current jar has the correct target from settings
-        const updatedCurrent = {
-          ...current,
-          targetXP: loadedSettings.jarTarget,
-        };
-        if (current.targetXP !== loadedSettings.jarTarget) {
-          setJars(
-            parsedJars.map((j: Jar) =>
-              j.id === current.id ? updatedCurrent : j
-            )
-          );
-        }
-        setCurrentJar(updatedCurrent);
-      } else {
-        const newJar: Jar = {
-          id: Date.now().toString(),
-          currentXP: 0,
-          targetXP: loadedSettings.jarTarget,
-          completed: false,
-          tasks: [],
-        };
-        setCurrentJar(newJar);
-        setJars([newJar]);
+    const current = jars.find((jar) => !jar.completed);
+    if (current) {
+      // Ensure current jar has the correct target from settings
+      if (current.targetXP !== settings.jarTarget) {
+        updateJar(current.id, { targetXP: settings.jarTarget });
       }
+      setCurrentJar(current);
     } else {
-      const newJar: Jar = {
-        id: Date.now().toString(),
+      // Create a new jar if none exist or all are completed
+      const newJarData = {
+        name: "My Jar",
         currentXP: 0,
-        targetXP: loadedSettings.jarTarget,
+        targetXP: settings.jarTarget,
         completed: false,
         tasks: [],
       };
-      setCurrentJar(newJar);
-      setJars([newJar]);
+      addJar(newJarData).then((newJar) => {
+        setCurrentJar(newJar);
+      });
     }
-  }, [isHydrated, loading, user]);
+  }, [jars, settings.jarTarget, user, dataLoading, addJar, updateJar]);
 
-  useEffect(() => {
-    if (!isHydrated || !user) return;
-    localStorage.setItem("taskjar_tasks", JSON.stringify(tasks));
-  }, [tasks, isHydrated, user]);
-
-  useEffect(() => {
-    if (!isHydrated || !user) return;
-    localStorage.setItem("taskjar_jars", JSON.stringify(jars));
-  }, [jars, isHydrated, user]);
-
-  useEffect(() => {
-    if (!isHydrated || !user) return;
-    localStorage.setItem("taskjar_settings", JSON.stringify(settings));
-  }, [settings, isHydrated, user]);
+  // Data persistence is now handled by Supabase - no need for localStorage sync
 
   useEffect(() => {
     if (
@@ -214,13 +148,35 @@ export default function TaskJarApp() {
   }, [settings.jarTarget, currentJar]);
 
   // Conditional rendering after all hooks
-  if (!isHydrated || loading) {
-    return null;
+  if (!isHydrated || isAppLoading) {
+    return (
+      <div className="min-h-screen bg-gray-900 flex items-center justify-center">
+        <div className="text-white text-xl">Loading TaskJar...</div>
+      </div>
+    );
   }
 
   if (!user) {
     router.replace("/landing");
     return null;
+  }
+
+  // Show error state if data loading failed
+  if (dataError) {
+    return (
+      <div className="min-h-screen bg-gray-900 flex items-center justify-center">
+        <div className="text-center text-white">
+          <div className="text-red-400 text-xl mb-4">Failed to load data</div>
+          <div className="text-gray-400">{dataError}</div>
+          <button
+            onClick={() => window.location.reload()}
+            className="mt-4 px-4 py-2 bg-blue-600 rounded hover:bg-blue-700"
+          >
+            Retry
+          </button>
+        </div>
+      </div>
+    );
   }
 
   // Sound effects
@@ -332,17 +288,34 @@ export default function TaskJarApp() {
     }
   };
 
-  const handleAddTask = (
-    task: Omit<Task, "id" | "completed" | "completedAt">
+  const handleAddTask = async (
+    task: Omit<Task, "id" | "completed" | "completedAt" | "createdAt">
   ) => {
-    const newTask = {
-      ...task,
-      id: Date.now().toString(),
-      completed: false,
-      completedAt: undefined,
-    };
-    setTasks((prev) => [newTask, ...prev]);
-    playSound("generate");
+    try {
+      await addTask({
+        ...task,
+        completed: false,
+        completedAt: undefined,
+      });
+      playSound("generate");
+    } catch (error) {
+      console.error('Failed to add task:', error);
+    }
+  };
+
+  const handleAddTasks = async (tasks: Omit<Task, "id" | "completed" | "completedAt" | "createdAt">[]) => {
+    try {
+      for (const task of tasks) {
+        await addTask({
+          ...task,
+          completed: false,
+          completedAt: undefined,
+        });
+      }
+      playSound("generate");
+    } catch (error) {
+      console.error('Failed to add tasks:', error);
+    }
   };
 
   const handleNavigation = (
@@ -353,27 +326,45 @@ export default function TaskJarApp() {
   };
 
   // Delete task from history
-  const deleteTaskFromHistory = (taskId: string) => {
-    setTasks((prev) => prev.filter((t) => t.id !== taskId));
-    playSound("click");
+  const deleteTaskFromHistory = async (taskId: string) => {
+    try {
+      await deleteTask(taskId);
+      playSound("click");
+    } catch (error) {
+      console.error('Failed to delete task:', error);
+    }
   };
 
-  // Clear all data
-  const clearAllData = () => {
-    setTasks([]);
-    setJars([]);
-    const newJar: Jar = {
-      id: Date.now().toString(),
-      currentXP: 0,
-      targetXP: settings.jarTarget,
-      completed: false,
-      tasks: [],
-    };
-    setCurrentJar(newJar);
-    setJars([newJar]);
-    localStorage.removeItem("taskjar_tasks");
-    localStorage.removeItem("taskjar_jars");
-    playSound("click");
+  // Clear all data - Note: This is a destructive operation in Supabase
+  const clearAllData = async () => {
+    if (!confirm('Are you sure you want to delete ALL your tasks and jars? This action cannot be undone.')) {
+      return;
+    }
+
+    try {
+      // Delete all tasks and jars from Supabase
+      // Note: This is a simplified version - in production you'd want more careful deletion
+      for (const task of tasks) {
+        await deleteTask(task.id);
+      }
+      for (const jar of jars) {
+        await deleteJar(jar.id);
+      }
+
+      // Create a new jar
+      const newJar = await addJar({
+        name: "My Jar",
+        currentXP: 0,
+        targetXP: settings.jarTarget,
+        completed: false,
+        tasks: [],
+      });
+      setCurrentJar(newJar);
+
+      playSound("click");
+    } catch (error) {
+      console.error('Failed to clear data:', error);
+    }
   };
 
   return (
@@ -431,9 +422,11 @@ export default function TaskJarApp() {
         {activeSection === "todo" && (
           <TodoPage
             tasks={tasks}
-            setTasks={setTasks}
+            updateTask={updateTask}
+            addTasks={handleAddTasks}
             settings={settings}
             completeTask={completeTask}
+            deleteTask={deleteTask}
             playSound={playSound}
           />
         )}
@@ -450,7 +443,7 @@ export default function TaskJarApp() {
         {activeSection === "settings" && (
           <SettingsPage
             settings={settings}
-            setSettings={setSettings}
+            updateSettings={updateSettings}
             playSound={playSound}
             onClearAllData={clearAllData}
           />
@@ -467,7 +460,14 @@ export default function TaskJarApp() {
         {activeSection === "dump" && (
           <WeeklyDumpPage
             settings={settings}
-            setTasks={setTasks}
+            weeklyTasks={weeklyTasks}
+            addWeeklyTask={addWeeklyTask}
+            updateWeeklyTask={updateWeeklyTask}
+            deleteWeeklyTask={deleteWeeklyTask}
+            completeWeeklyTask={completeWeeklyTask}
+            archivedWeeks={archivedWeeks}
+            archiveWeek={archiveWeek}
+            handleAddTasks={handleAddTasks}
             playSound={playSound}
           />
         )}

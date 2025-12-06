@@ -14,13 +14,15 @@ import type { Task, AppSettings } from "../types"
 
 interface TodoPageProps {
   tasks: Task[]
-  setTasks: React.Dispatch<React.SetStateAction<Task[]>>
+  updateTask: (taskId: string, updates: Partial<Task>) => Promise<Task>
+  addTasks: (tasks: Omit<Task, "id" | "completed" | "completedAt" | "createdAt">[]) => Promise<void>
   settings: AppSettings
   completeTask: (taskId: string) => void
+  deleteTask: (taskId: string) => Promise<void>
   playSound: (type: "click" | "complete" | "generate") => void
 }
 
-export default function TodoPage({ tasks, setTasks, settings, completeTask, playSound }: TodoPageProps) {
+export default function TodoPage({ tasks, updateTask, addTasks, settings, completeTask, deleteTask, playSound }: TodoPageProps) {
   const [aiInput, setAiInput] = useState("")
   const [generatedTasks, setGeneratedTasks] = useState<Partial<Task>[]>([])
   const [isGenerating, setIsGenerating] = useState(false)
@@ -96,8 +98,7 @@ export default function TodoPage({ tasks, setTasks, settings, completeTask, play
   const addTasksToList = (tasksToAdd: Partial<Task>[]) => {
     playSound("click")
 
-    const newTasks: Task[] = tasksToAdd.map((task) => ({
-      id: Date.now().toString() + Math.random(),
+    const newTasks: Omit<Task, "id" | "completed" | "completedAt" | "createdAt">[] = tasksToAdd.map((task) => ({
       name: task.name || "",
       description: task.description || "",
       priority: task.priority || "optional",
@@ -105,11 +106,9 @@ export default function TodoPage({ tasks, setTasks, settings, completeTask, play
       priorityEmoji: task.priorityEmoji || settings.emojis.priority.optional,
       difficultyEmoji: task.difficultyEmoji || settings.emojis.difficulty.light,
       xpValue: task.xpValue || settings.xpValues.light,
-      completed: false,
-      createdAt: Date.now(),
     }))
 
-    setTasks((prev) => [...prev, ...newTasks])
+    await addTasks(newTasks)
     setGeneratedTasks([])
     setShowTaskEditor(false)
     setAiInput("")
