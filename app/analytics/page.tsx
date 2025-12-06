@@ -7,6 +7,7 @@ import {
   averagePct,
   hasAtLeastNDays,
 } from "../lib/analytics";
+import { load } from "../lib/storage";
 import MotivationCard from "./components/MotivationCard";
 import OnboardingCards from "./components/OnboardingCards";
 import {
