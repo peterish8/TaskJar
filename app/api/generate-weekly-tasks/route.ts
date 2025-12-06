@@ -55,7 +55,7 @@ Return the output as a valid JSON array of objects. Each object should have: "sc
 User input: "${prompt}"`;
 
     const response = await fetch(
-      "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent",
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${process.env.GOOGLE_GENERATIVE_AI_API_KEY}`,
       {
         method: "POST",
         headers: {
