@@ -7,13 +7,7 @@ export async function POST(req: NextRequest) {
   //   return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   // }
 
-  if (!process.env.GOOGLE_GENERATIVE_AI_API_KEY) {
-    console.error("Missing GOOGLE_GENERATIVE_AI_API_KEY");
-    return NextResponse.json(
-      { error: "API key not configured" },
-      { status: 500 }
-    );
-  }
+
 
   try {
     const { prompt, weekWindow } = await req.json();
@@ -61,7 +55,7 @@ Return the output as a valid JSON array of objects. Each object should have: "sc
 User input: "${prompt}"`;
 
     const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${process.env.GOOGLE_GENERATIVE_AI_API_KEY}`,
+      "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent",
       {
         method: "POST",
         headers: {
