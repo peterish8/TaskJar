@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
+import { createTask } from "@/lib/database";
+import { supabase } from "@/lib/supabase";
 
 export async function POST(req: NextRequest) {
   try {
@@ -8,6 +10,15 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(
         { error: "Prompt is required" },
         { status: 400 }
+      );
+    }
+
+    // Check authentication
+    const authHeader = req.headers.get('authorization');
+    if (!authHeader) {
+      return NextResponse.json(
+        { error: "Authentication required" },
+        { status: 401 }
       );
     }
 
@@ -107,7 +118,24 @@ export async function POST(req: NextRequest) {
       }]);
     }
 
-    return NextResponse.json(jsonResponse);
+    // Save tasks to database
+    const savedTasks = [];
+    for (const task of jsonResponse) {
+      try {
+        const savedTask = await createTask({
+          name: task.name,
+          description: task.description,
+          priority: task.priority,
+          difficulty: task.difficulty,
+          status: 'pending'
+        });
+        savedTasks.push(savedTask);
+      } catch (error) {
+        console.error('Error saving task:', error);
+      }
+    }
+
+    return NextResponse.json(savedTasks.length > 0 ? savedTasks : jsonResponse);
   } catch (error) {
     console.error("Error generating tasks:", error);
     return NextResponse.json(

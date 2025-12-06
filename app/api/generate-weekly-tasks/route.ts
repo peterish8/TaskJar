@@ -1,16 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
+import { createTask, createWeeklyDump } from "@/lib/database";
 
 export async function POST(req: NextRequest) {
-  // For development, skip authentication check
-  // const session = await getServerSession();
-  // if (!session) {
-  //   return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  // }
-
-
-
   try {
     const { prompt, weekWindow } = await req.json();
+
+    // Check authentication
+    const authHeader = req.headers.get('authorization');
+    if (!authHeader) {
+      return NextResponse.json(
+        { error: "Authentication required" },
+        { status: 401 }
+      );
+    }
 
     if (!prompt) {
       return NextResponse.json(
@@ -115,7 +117,37 @@ User input: "${prompt}"`;
       };
     });
 
-    return NextResponse.json(validatedTasks);
+    // Save tasks to database
+    const savedTasks = [];
+    for (const task of validatedTasks) {
+      try {
+        const savedTask = await createTask({
+          name: task.name,
+          description: task.description,
+          priority: task.priority,
+          difficulty: task.difficulty,
+          status: 'pending',
+          scheduled_date: task.scheduledDate
+        });
+        savedTasks.push(savedTask);
+      } catch (error) {
+        console.error('Error saving task:', error);
+      }
+    }
+
+    // Save weekly dump record
+    try {
+      await createWeeklyDump(
+        weekWindow[0],
+        weekWindow[6],
+        prompt,
+        savedTasks.length
+      );
+    } catch (error) {
+      console.error('Error saving weekly dump:', error);
+    }
+
+    return NextResponse.json(savedTasks.length > 0 ? savedTasks : validatedTasks);
   } catch (error) {
     console.error("Error generating weekly tasks:", error);
     return NextResponse.json(
