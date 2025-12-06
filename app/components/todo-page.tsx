@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import type { Task, AppSettings } from "../types"
+import { supabase } from "@/lib/supabase"
 
 interface TodoPageProps {
   tasks: Task[]
@@ -58,10 +59,17 @@ export default function TodoPage({ tasks, updateTask, addTasks, settings, comple
      playSound("generate")
  
      try {
+       // Get the current session token for authentication
+       const { data: { session } } = await supabase.auth.getSession();
+       if (!session?.access_token) {
+         throw new Error("Not authenticated");
+       }
+
        const response = await fetch("/api/generate-tasks", {
          method: "POST",
          headers: {
            "Content-Type": "application/json",
+           "Authorization": `Bearer ${session.access_token}`,
          },
          body: JSON.stringify({ prompt: aiInput }),
        })

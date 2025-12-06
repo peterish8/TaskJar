@@ -1,18 +1,49 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createTask, createWeeklyDump } from "@/lib/database";
+import { taskService, weeklyDumpService } from "@/lib/supabase-services";
+import { supabase } from "@/lib/supabase";
+
+// Helper functions for task creation
+const mapPriority = (priority: string): "urgent" | "scheduled" | "optional" => {
+  switch (priority) {
+    case "high": return "urgent";
+    case "medium": return "scheduled";
+    case "low": return "optional";
+    default: return "optional";
+  }
+};
+
+const mapDifficulty = (difficulty: string): "light" | "standard" | "challenging" => {
+  switch (difficulty) {
+    case "easy": return "light";
+    case "moderate": return "standard";
+    case "hard": return "challenging";
+    default: return "standard";
+  }
+};
+
+const getXpValue = (difficulty: string): number => {
+  switch (difficulty) {
+    case "easy": return 5;
+    case "moderate": return 10;
+    case "hard": return 15;
+    default: return 10;
+  }
+};
 
 export async function POST(req: NextRequest) {
   try {
     const { prompt, weekWindow } = await req.json();
 
-    // Check authentication
-    const authHeader = req.headers.get('authorization');
-    if (!authHeader) {
+    // Get the authenticated user from Supabase
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (authError || !user) {
       return NextResponse.json(
         { error: "Authentication required" },
         { status: 401 }
       );
     }
+
+    const userId = user.id;
 
     if (!prompt) {
       return NextResponse.json(
@@ -117,18 +148,22 @@ User input: "${prompt}"`;
       };
     });
 
-    // Save tasks to database
+    // Save tasks to database using Supabase services
     const savedTasks = [];
     for (const task of validatedTasks) {
       try {
-        const savedTask = await createTask({
+        // Convert to our task format
+        const taskData = {
           name: task.name,
           description: task.description,
-          priority: task.priority,
-          difficulty: task.difficulty,
-          status: 'pending',
-          scheduled_date: task.scheduledDate
-        });
+          priority: mapPriority(task.priority),
+          difficulty: mapDifficulty(task.difficulty),
+          xpValue: getXpValue(task.difficulty),
+          completed: false,
+          scheduledFor: task.scheduledDate,
+        };
+
+        const savedTask = await taskService.createTask(userId, taskData);
         savedTasks.push(savedTask);
       } catch (error) {
         console.error('Error saving task:', error);
@@ -137,12 +172,12 @@ User input: "${prompt}"`;
 
     // Save weekly dump record
     try {
-      await createWeeklyDump(
-        weekWindow[0],
-        weekWindow[6],
-        prompt,
-        savedTasks.length
-      );
+      const archivedWeekData = {
+        startDateISO: weekWindow[0],
+        dates: weekWindow,
+        tasks: savedTasks,
+      };
+      await weeklyDumpService.archiveWeek(userId, archivedWeekData);
     } catch (error) {
       console.error('Error saving weekly dump:', error);
     }

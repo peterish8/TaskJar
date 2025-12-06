@@ -81,7 +81,9 @@ export default function TaskJarApp() {
       if (todayTasks.length === 0) return;
 
       const completedTasks = todayTasks.filter((task) => task.completed);
-      const completionPct = Math.round((completedTasks.length / todayTasks.length) * 100);
+      const completionPct = Math.round(
+        (completedTasks.length / todayTasks.length) * 100
+      );
 
       await updateDailyCompletion(completionPct);
     };
@@ -295,11 +297,13 @@ export default function TaskJarApp() {
       });
       playSound("generate");
     } catch (error) {
-      console.error('Failed to add task:', error);
+      console.error("Failed to add task:", error);
     }
   };
 
-  const handleAddTasks = async (tasks: Omit<Task, "id" | "completed" | "completedAt" | "createdAt">[]) => {
+  const handleAddTasks = async (
+    tasks: Omit<Task, "id" | "completed" | "completedAt" | "createdAt">[]
+  ) => {
     try {
       for (const task of tasks) {
         await addTask({
@@ -310,7 +314,7 @@ export default function TaskJarApp() {
       }
       playSound("generate");
     } catch (error) {
-      console.error('Failed to add tasks:', error);
+      console.error("Failed to add tasks:", error);
     }
   };
 
@@ -327,13 +331,17 @@ export default function TaskJarApp() {
       await deleteTask(taskId);
       playSound("click");
     } catch (error) {
-      console.error('Failed to delete task:', error);
+      console.error("Failed to delete task:", error);
     }
   };
 
   // Clear all data - Note: This is a destructive operation in Supabase
   const clearAllData = async () => {
-    if (!confirm('Are you sure you want to delete ALL your tasks and jars? This action cannot be undone.')) {
+    if (
+      !confirm(
+        "Are you sure you want to delete ALL your tasks and jars? This action cannot be undone."
+      )
+    ) {
       return;
     }
 
@@ -359,7 +367,7 @@ export default function TaskJarApp() {
 
       playSound("click");
     } catch (error) {
-      console.error('Failed to clear data:', error);
+      console.error("Failed to clear data:", error);
     }
   };
 

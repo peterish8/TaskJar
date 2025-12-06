@@ -33,6 +33,7 @@ import {
   debugWeekWindow,
 } from "@/lib/date";
 import { load, save, STORAGE_KEYS } from "@/lib/storage";
+import { supabase } from "@/lib/supabase";
 import WeeklyHistoryDrawer from "./weekly-history-drawer";
 
 interface WeeklyDumpPageProps {
@@ -126,10 +127,17 @@ export default function WeeklyDumpPage({
     playSound("generate");
 
     try {
+      // Get the current session token for authentication
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        throw new Error("Not authenticated");
+      }
+
       const response = await fetch("/api/generate-weekly-tasks", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          "Authorization": `Bearer ${session.access_token}`,
         },
         body: JSON.stringify({
           prompt: weeklyInput,

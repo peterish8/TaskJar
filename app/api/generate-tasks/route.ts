@@ -1,6 +1,48 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createTask } from "@/lib/database";
+import { taskService } from "@/lib/supabase-services";
 import { supabase } from "@/lib/supabase";
+
+// Helper functions for task creation
+const mapPriority = (priority: string): "urgent" | "scheduled" | "optional" => {
+  switch (priority) {
+    case "high":
+      return "urgent";
+    case "medium":
+      return "scheduled";
+    case "low":
+      return "optional";
+    default:
+      return "optional";
+  }
+};
+
+const mapDifficulty = (
+  difficulty: string
+): "light" | "standard" | "challenging" => {
+  switch (difficulty) {
+    case "easy":
+      return "light";
+    case "moderate":
+      return "standard";
+    case "hard":
+      return "challenging";
+    default:
+      return "standard";
+  }
+};
+
+const getXpValue = (difficulty: string): number => {
+  switch (difficulty) {
+    case "easy":
+      return 5;
+    case "moderate":
+      return 10;
+    case "hard":
+      return 15;
+    default:
+      return 10;
+  }
+};
 
 export async function POST(req: NextRequest) {
   try {
@@ -13,14 +55,19 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Check authentication
-    const authHeader = req.headers.get('authorization');
-    if (!authHeader) {
+    // Get the authenticated user from Supabase
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
+    if (authError || !user) {
       return NextResponse.json(
         { error: "Authentication required" },
         { status: 401 }
       );
     }
+
+    const userId = user.id;
 
     const response = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${process.env.GOOGLE_GENERATIVE_AI_API_KEY}`,
@@ -30,10 +77,16 @@ export async function POST(req: NextRequest) {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          contents: [{
-            parts: [{ text: `Generate 3-5 tasks based on: ${prompt}. Return as JSON array with name, description, priority (low/medium/high), difficulty (easy/moderate/hard).` }]
-          }]
-        })
+          contents: [
+            {
+              parts: [
+                {
+                  text: `Generate 3-5 tasks based on: ${prompt}. Return as JSON array with name, description, priority (low/medium/high), difficulty (easy/moderate/hard).`,
+                },
+              ],
+            },
+          ],
+        }),
       }
     );
 
@@ -41,58 +94,76 @@ export async function POST(req: NextRequest) {
       // Parse prompt and create meaningful tasks
       const tasks = [];
       const lowerPrompt = prompt.toLowerCase();
-      
-      if (lowerPrompt.includes('admin page') || lowerPrompt.includes('sister')) {
+
+      if (
+        lowerPrompt.includes("admin page") ||
+        lowerPrompt.includes("sister")
+      ) {
         tasks.push({
           name: "Create Admin Page",
           description: "Work on sister's admin page creation project",
           priority: "high",
-          difficulty: "moderate"
+          difficulty: "moderate",
         });
       }
-      
-      if (lowerPrompt.includes('video') || lowerPrompt.includes('editing') || lowerPrompt.includes('mom')) {
+
+      if (
+        lowerPrompt.includes("video") ||
+        lowerPrompt.includes("editing") ||
+        lowerPrompt.includes("mom")
+      ) {
         tasks.push({
           name: "Video Editing",
           description: "Help mom with video making and editing",
           priority: "medium",
-          difficulty: "moderate"
+          difficulty: "moderate",
         });
       }
-      
-      if (lowerPrompt.includes('ojt') || lowerPrompt.includes('job training') || lowerPrompt.includes('monday')) {
+
+      if (
+        lowerPrompt.includes("ojt") ||
+        lowerPrompt.includes("job training") ||
+        lowerPrompt.includes("monday")
+      ) {
         tasks.push({
           name: "Complete OJT Project",
           description: "Finish on-the-job training project (due Monday)",
           priority: "high",
-          difficulty: "hard"
+          difficulty: "hard",
         });
       }
-      
-      if (lowerPrompt.includes('javascript') || lowerPrompt.includes('studying')) {
+
+      if (
+        lowerPrompt.includes("javascript") ||
+        lowerPrompt.includes("studying")
+      ) {
         tasks.push({
           name: "Study JavaScript",
           description: "Learn JavaScript fundamentals",
           priority: "high",
-          difficulty: "moderate"
+          difficulty: "moderate",
         });
       }
-      
-      if (lowerPrompt.includes('netflix') || lowerPrompt.includes('lock and key') || lowerPrompt.includes('episodes')) {
+
+      if (
+        lowerPrompt.includes("netflix") ||
+        lowerPrompt.includes("lock and key") ||
+        lowerPrompt.includes("episodes")
+      ) {
         tasks.push({
           name: "Watch Netflix",
           description: "Watch 2 episodes of Lock and Key",
           priority: "low",
-          difficulty: "easy"
+          difficulty: "easy",
         });
       }
-      
+
       if (tasks.length === 0) {
         tasks.push({
           name: prompt.charAt(0).toUpperCase() + prompt.slice(1),
           description: `Complete: ${prompt}`,
           priority: "medium",
-          difficulty: "easy"
+          difficulty: "easy",
         });
       }
       return NextResponse.json(tasks);
@@ -110,28 +181,36 @@ export async function POST(req: NextRequest) {
           .trim()
       );
     } catch (parseError) {
-      return NextResponse.json([{
-        name: prompt.charAt(0).toUpperCase() + prompt.slice(1),
-        description: `Complete: ${prompt}`,
-        priority: "medium",
-        difficulty: "easy"
-      }]);
+      return NextResponse.json([
+        {
+          name: prompt.charAt(0).toUpperCase() + prompt.slice(1),
+          description: `Complete: ${prompt}`,
+          priority: "medium",
+          difficulty: "easy",
+        },
+      ]);
     }
 
-    // Save tasks to database
+    // Save tasks to database using Supabase services
     const savedTasks = [];
-    for (const task of jsonResponse) {
-      try {
-        const savedTask = await createTask({
-          name: task.name,
-          description: task.description,
-          priority: task.priority,
-          difficulty: task.difficulty,
-          status: 'pending'
-        });
-        savedTasks.push(savedTask);
-      } catch (error) {
-        console.error('Error saving task:', error);
+    if (userId) {
+      for (const task of jsonResponse) {
+        try {
+          // Convert AI response format to our task format
+          const taskData = {
+            name: task.name,
+            description: task.description || "",
+            priority: mapPriority(task.priority),
+            difficulty: mapDifficulty(task.difficulty),
+            xpValue: getXpValue(task.difficulty),
+            completed: false,
+          };
+
+          const savedTask = await taskService.createTask(userId, taskData);
+          savedTasks.push(savedTask);
+        } catch (error) {
+          console.error("Error saving task:", error);
+        }
       }
     }
 
