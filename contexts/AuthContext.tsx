@@ -63,10 +63,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signInWithGoogle = async () => {
     try {
+      // Get the current origin for dynamic redirect URL
+      const redirectTo = typeof window !== 'undefined' 
+        ? `${window.location.origin}/auth/callback`
+        : "https://taskjars.vercel.app/auth/callback";
+      
       const { error } = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: {
-          redirectTo: "https://taskjars.vercel.app/auth/callback"
+          redirectTo: redirectTo,
+          skipBrowserRedirect: false, // Ensure immediate redirect
         }
       });
       if (error) throw error;

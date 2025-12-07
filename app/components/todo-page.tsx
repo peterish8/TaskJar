@@ -124,9 +124,15 @@ export default function TodoPage({ tasks, updateTask, addTasks, settings, comple
 
   // Get today's tasks
   const todaysTasks = tasks.filter((task) => {
-    const today = new Date().toDateString()
-    const taskDate = new Date(task.createdAt).toDateString()
-    return taskDate === today && !task.scheduledFor
+    if (task.scheduledFor) return false;
+    const today = new Date();
+    const taskDate = new Date(task.createdAt);
+    // Compare dates (year, month, day) ignoring time
+    return (
+      today.getFullYear() === taskDate.getFullYear() &&
+      today.getMonth() === taskDate.getMonth() &&
+      today.getDate() === taskDate.getDate()
+    );
   })
 
   const pendingTasks = todaysTasks.filter((task) => !task.completed)

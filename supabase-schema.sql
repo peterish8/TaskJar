@@ -190,7 +190,7 @@ BEGIN
     END IF;
     RETURN NULL;
 END;
-$$ language 'plpgsql';
+$$ language 'plpgsql' SECURITY DEFINER;
 
 CREATE TRIGGER task_history_trigger
     AFTER INSERT OR UPDATE OR DELETE ON tasks
@@ -298,6 +298,10 @@ CREATE POLICY "Users can delete own archived weeks" ON archived_weeks
 -- Task History: Users can only see history for their own tasks
 CREATE POLICY "Users can view own task history" ON task_history
     FOR SELECT USING (auth.uid() = user_id);
+
+-- Task History: Allow inserts from triggers (trigger uses same user_id as the task)
+CREATE POLICY "Users can insert own task history" ON task_history
+    FOR INSERT WITH CHECK (auth.uid() = user_id);
 
 -- Daily Completion: Users can only see/edit their own completion data
 CREATE POLICY "Users can view own daily completion" ON daily_completion

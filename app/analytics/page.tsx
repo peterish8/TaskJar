@@ -1,13 +1,8 @@
 "use client";
-import React from "react";
-import {
-  loadDailyCompletion,
-  last7 as getLast7,
-  streakCount,
-  averagePct,
-  hasAtLeastNDays,
-} from "../lib/analytics";
-import { load } from "../lib/storage";
+import React, { useEffect, useState, useMemo } from "react";
+import { useAuth } from "../../contexts/AuthContext";
+import { useSupabaseData } from "../../lib/use-supabase-data";
+import type { Task } from "../types";
 import MotivationCard from "./components/MotivationCard";
 import OnboardingCards from "./components/OnboardingCards";
 import {
@@ -23,6 +18,7 @@ import {
   BarChart,
   Bar,
   CartesianGrid,
+  Legend,
 } from "recharts";
 
 function heatColor(pct: number): string {
@@ -30,29 +26,6 @@ function heatColor(pct: number): string {
   if (pct < 34) return "bg-yellow-200 dark:bg-yellow-700/50";
   if (pct < 67) return "bg-yellow-400 dark:bg-yellow-600";
   return "bg-green-500 dark:bg-green-600";
-}
-
-function getStreak(days: any[]): number {
-  let streak = 0;
-  for (let i = days.length - 1; i >= 0; i--) {
-    if (days[i].completionPct > 0) streak++;
-    else break;
-  }
-  return streak;
-}
-
-function getWeeklySegments(last7: any[]) {
-  const up: (any & { delta: number })[] = [];
-  const down: (any & { delta: number })[] = [];
-  const flat: (any & { delta: number })[] = [];
-  for (let i = 1; i < last7.length; i++) {
-    const delta = last7[i].completionPct - last7[i - 1].completionPct;
-    const point = { ...last7[i], delta };
-    if (delta > 0) up.push(point);
-    else if (delta < 0) down.push(point);
-    else flat.push(point);
-  }
-  return { up, down, flat };
 }
 
 const COLORS = [
@@ -65,89 +38,250 @@ const COLORS = [
   "#EC4899",
 ];
 
-export default function AnalyticsPage() {
-  const rows = loadDailyCompletion();
-  const isEstablished = hasAtLeastNDays(rows, 7);
-  const week = getLast7(rows);
-  const todayPct = week.length ? week[week.length - 1].completionPct : 0;
-  const tasksCompletedSoFar = Math.round(
-    week.reduce((acc, r) => acc + (r.completionPct > 0 ? 1 : 0), 0) * 1.5
-  );
+// Calculate completion percentage for a given date
+function calculateDailyCompletion(tasks: Task[], date: string): number {
+  const dateStr = date.split('T')[0];
+  const dayStart = new Date(dateStr).getTime();
+  const dayEnd = dayStart + 24 * 60 * 60 * 1000;
 
-  // Completion data
-  const daily = loadDailyCompletion();
-  const today = daily[daily.length - 1] || { completionPct: 0, dateISO: "" };
-  const last7 = daily.slice(-7);
-  const last30 = daily;
-  const streak = getStreak(last30);
-  const forecast = Math.round(
-    last7.reduce((a, b) => a + b.completionPct, 0) / (last7.length || 1)
-  );
-
-  // Task data
-  const completedTasks = load<any[]>("taskjar.completedTasks", []);
-  const priorities = { High: 0, Medium: 0, Low: 0 };
-  const categories: Record<string, number> = {};
-  const difficulties = { Easy: 0, Moderate: 0, Hard: 0 };
-  let hours: number[] = Array(24).fill(0);
-  let totalTasks = 0;
-  let totalTime = 0;
-  let timeCount = 0;
-
-  completedTasks.forEach((t) => {
-    priorities[
-      t.priority === "urgent"
-        ? "High"
-        : t.priority === "scheduled"
-        ? "Medium"
-        : "Low"
-    ]++;
-    if (t.label) categories[t.label] = (categories[t.label] || 0) + 1;
-    difficulties[
-      t.difficulty === "challenging"
-        ? "Hard"
-        : t.difficulty === "standard"
-        ? "Moderate"
-        : "Easy"
-    ]++;
-    if (t.completedAt && t.createdAt) {
-      const diff = t.completedAt - t.createdAt;
-      if (diff > 0) {
-        totalTime += diff;
-        timeCount++;
-      }
-      const hour = new Date(t.completedAt).getHours();
-      hours[hour]++;
-    }
-    totalTasks++;
+  // Get tasks created on this date (not scheduled for future)
+  const dayTasks = tasks.filter(task => {
+    const taskDate = new Date(task.createdAt);
+    const taskDateStr = taskDate.toISOString().split('T')[0];
+    return taskDateStr === dateStr && !task.scheduledFor;
   });
 
-  // Weekly trend segments
-  const weeklySegments = getWeeklySegments(last7);
+  if (dayTasks.length === 0) return 0;
 
-  // Heatmap grid (7x5)
-  const heatmapGrid = [];
-  for (let row = 0; row < 5; row++) {
-    const week = last30.slice(row * 7, row * 7 + 7);
-    heatmapGrid.push(week);
+  const completed = dayTasks.filter(task => task.completed && task.completedAt).length;
+  return Math.round((completed / dayTasks.length) * 100);
+}
+
+// Calculate streak from tasks
+function calculateStreak(tasks: Task[]): number {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  
+  let streak = 0;
+  let currentDate = new Date(today);
+  
+  while (true) {
+    const dateStr = currentDate.toISOString().split('T')[0];
+    const dayTasks = tasks.filter(task => {
+      const taskDate = new Date(task.createdAt);
+      const taskDateStr = taskDate.toISOString().split('T')[0];
+      return taskDateStr === dateStr && !task.scheduledFor;
+    });
+
+    if (dayTasks.length === 0) {
+      // If no tasks on this day, check if it's today - if so, don't break streak
+      if (currentDate.getTime() === today.getTime()) {
+        break;
+      }
+      // If past day with no tasks, streak continues
+      currentDate.setDate(currentDate.getDate() - 1);
+      continue;
+    }
+
+    const completed = dayTasks.filter(task => task.completed).length;
+    const completionPct = (completed / dayTasks.length) * 100;
+
+    if (completionPct > 0) {
+      streak++;
+      currentDate.setDate(currentDate.getDate() - 1);
+    } else {
+      // If today has no completion, don't count it in streak
+      if (currentDate.getTime() === today.getTime()) {
+        break;
+      }
+      // Past day with no completion breaks streak
+      break;
+    }
   }
 
-  // AI Insights (simple)
-  const aiInsights: string[] = [];
-  if (last30.length >= 7) {
-    const mondayAvg =
-      last30
-        .filter((d, i) => new Date(d.dateISO).getDay() === 1)
-        .reduce((a, b) => a + b.completionPct, 0) /
-      (last30.filter((d, i) => new Date(d.dateISO).getDay() === 1).length || 1);
-    if (mondayAvg < 50) aiInsights.push("Mondays trend lower");
-    const midweek =
-      last30.slice(2, 5).reduce((a, b) => a + b.completionPct, 0) / 3;
-    if (midweek < 50) aiInsights.push("Mid-week productivity drops");
-    if (!aiInsights.length)
-      aiInsights.push("No strong missed task patterns detected");
-  } else {
-    aiInsights.push("Insufficient data");
+  return streak;
+}
+
+// Get last N days of completion data
+function getLastNDaysCompletion(tasks: Task[], days: number): Array<{ dateISO: string; completionPct: number }> {
+  const result: Array<{ dateISO: string; completionPct: number }> = [];
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  for (let i = days - 1; i >= 0; i--) {
+    const date = new Date(today);
+    date.setDate(date.getDate() - i);
+    const dateStr = date.toISOString().split('T')[0];
+    const completionPct = calculateDailyCompletion(tasks, dateStr);
+    result.push({ dateISO: dateStr, completionPct });
+  }
+
+  return result;
+}
+
+export default function AnalyticsPage() {
+  const { user } = useAuth();
+  const { tasks, getTodayCompletion } = useSupabaseData();
+  const [todayCompletion, setTodayCompletion] = useState<number>(0);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchTodayCompletion = async () => {
+      if (user) {
+        const completion = await getTodayCompletion();
+        setTodayCompletion(completion);
+      }
+      setLoading(false);
+    };
+    fetchTodayCompletion();
+  }, [user, getTodayCompletion]);
+
+  // Calculate metrics from real task data
+  const metrics = useMemo(() => {
+    if (!tasks || tasks.length === 0) {
+      return {
+        todayPct: 0,
+        streak: 0,
+        avg7d: 0,
+        last7: [],
+        last30: [],
+        completedTasks: [],
+        priorities: { High: 0, Medium: 0, Low: 0 },
+        difficulties: { Easy: 0, Moderate: 0, Hard: 0 },
+        hours: Array(24).fill(0),
+        totalTasks: 0,
+      };
+    }
+
+    // Get completed tasks
+    const completedTasks = tasks.filter(t => t.completed && t.completedAt);
+
+    // Calculate today's completion
+    const today = new Date().toISOString().split('T')[0];
+    const todayPct = calculateDailyCompletion(tasks, today);
+
+    // Calculate streak
+    const streak = calculateStreak(tasks);
+
+    // Get last 7 and 30 days data
+    const last7 = getLastNDaysCompletion(tasks, 7);
+    const last30 = getLastNDaysCompletion(tasks, 30);
+
+    // Calculate 7-day average
+    const avg7d = last7.length > 0
+      ? Math.round(last7.reduce((sum, day) => sum + day.completionPct, 0) / last7.length)
+      : 0;
+
+    // Analyze completed tasks
+    const priorities = { High: 0, Medium: 0, Low: 0 };
+    const difficulties = { Easy: 0, Moderate: 0, Hard: 0 };
+    const hours: number[] = Array(24).fill(0);
+
+    completedTasks.forEach(task => {
+      // Priority breakdown
+      if (task.priority === 'urgent') priorities.High++;
+      else if (task.priority === 'scheduled') priorities.Medium++;
+      else priorities.Low++;
+
+      // Difficulty breakdown
+      if (task.difficulty === 'challenging') difficulties.Hard++;
+      else if (task.difficulty === 'standard') difficulties.Moderate++;
+      else difficulties.Easy++;
+
+      // Hour of completion
+      if (task.completedAt) {
+        const hour = new Date(task.completedAt).getHours();
+        hours[hour]++;
+      }
+    });
+
+    return {
+      todayPct: todayCompletion || todayPct,
+      streak,
+      avg7d,
+      last7,
+      last30,
+      completedTasks,
+      priorities,
+      difficulties,
+      hours,
+      totalTasks: tasks.length,
+    };
+  }, [tasks, todayCompletion]);
+
+  // Heatmap grid (last 35 days, 5 weeks)
+  const heatmapGrid = useMemo(() => {
+    const grid = [];
+    const last35 = getLastNDaysCompletion(tasks || [], 35);
+    for (let row = 0; row < 5; row++) {
+      const week = last35.slice(row * 7, row * 7 + 7);
+      grid.push(week);
+    }
+    return grid;
+  }, [tasks]);
+
+  // AI Insights
+  const aiInsights = useMemo(() => {
+    const insights: string[] = [];
+    const { last7, last30 } = metrics;
+
+    if (last30.length >= 7) {
+      // Check for day-of-week patterns
+      const dayStats: Record<number, number[]> = {};
+      last30.forEach(day => {
+        const date = new Date(day.dateISO);
+        const dayOfWeek = date.getDay();
+        if (!dayStats[dayOfWeek]) dayStats[dayOfWeek] = [];
+        dayStats[dayOfWeek].push(day.completionPct);
+      });
+
+      const dayAverages: Record<number, number> = {};
+      Object.keys(dayStats).forEach(day => {
+        const stats = dayStats[parseInt(day)];
+        dayAverages[parseInt(day)] = stats.reduce((a, b) => a + b, 0) / stats.length;
+      });
+
+      const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+      const lowestDay = Object.entries(dayAverages)
+        .sort(([, a], [, b]) => a - b)[0];
+      
+      if (lowestDay && lowestDay[1] < 50) {
+        insights.push(`${dayNames[parseInt(lowestDay[0])]}s are your least productive day (avg ${Math.round(lowestDay[1])}%)`);
+      }
+
+      // Check for trends
+      if (last7.length >= 3) {
+        const recent = last7.slice(-3).reduce((a, b) => a + b.completionPct, 0) / 3;
+        const earlier = last7.slice(0, 3).reduce((a, b) => a + b.completionPct, 0) / 3;
+        if (recent > earlier + 10) {
+          insights.push("You're on an upward trend! Keep it up!");
+        } else if (recent < earlier - 10) {
+          insights.push("Your productivity has dipped recently. Try breaking tasks into smaller chunks.");
+        }
+      }
+    }
+
+    if (metrics.streak > 0) {
+      insights.push(`🔥 ${metrics.streak}-day streak! Maintain your momentum.`);
+    }
+
+    if (metrics.completedTasks.length === 0) {
+      insights.push("Complete your first task to start tracking analytics!");
+    } else if (metrics.completedTasks.length < 5) {
+      insights.push("Keep completing tasks to unlock more insights!");
+    }
+
+    return insights.length > 0 ? insights : ["Complete more tasks to see personalized insights!"];
+  }, [metrics]);
+
+  const isEstablished = metrics.last30.filter(d => d.completionPct > 0).length >= 7;
+
+  if (loading) {
+    return (
+      <div className="mx-auto max-w-4xl px-4 py-6 md:py-8">
+        <div className="text-center text-green-400">Loading analytics...</div>
+      </div>
+    );
   }
 
   return (
@@ -158,18 +292,20 @@ export default function AnalyticsPage() {
           Analytics
         </h1>
         <p className="mt-2 text-green-200">
-          Today: <span className="font-semibold">{todayPct}%</span> · Streak:{" "}
-          <span className="font-semibold">{streakCount(rows)}</span> days · Avg
-          (7d): <span className="font-semibold">{averagePct(week)}%</span>
+          Today: <span className="font-semibold">{metrics.todayPct}%</span> · Streak:{" "}
+          <span className="font-semibold">{metrics.streak}</span> days · Avg
+          (7d): <span className="font-semibold">{metrics.avg7d}%</span>
         </p>
       </div>
 
       {/* Mode switch */}
       {!isEstablished ? (
-        <OnboardingCards data={rows} tasksCompleted={tasksCompletedSoFar} />
+        <OnboardingCards 
+          data={metrics.last30} 
+          tasksCompleted={metrics.completedTasks.length} 
+        />
       ) : (
         <div className="space-y-6">
-          {/* === Full analytics UI (existing sections) === */}
           {/* Completion Metrics */}
           <section className="rounded-2xl shadow-lg border border-green-500/30 p-4 md:p-6 bg-black/80 glass spotify-glow mb-4">
             <h2 className="matrix-font-large text-green-400 mb-2 drop-shadow-lg">
@@ -181,12 +317,12 @@ export default function AnalyticsPage() {
             <div className="flex flex-col md:flex-row gap-6">
               <div className="flex-1 space-y-2">
                 <div className="text-3xl font-bold text-green-400 matrix-font-large drop-shadow-lg">
-                  {today.completionPct}%
+                  {metrics.todayPct}%
                 </div>
                 <div className="h-3 w-full bg-green-900/40 rounded-full overflow-hidden">
                   <div
                     className="h-3 bg-gradient-to-r from-green-400 to-green-500 rounded-full transition-all spotify-glow"
-                    style={{ width: `${today.completionPct}%` }}
+                    style={{ width: `${metrics.todayPct}%` }}
                   />
                 </div>
                 <div className="text-xs text-green-300 mt-1">
@@ -196,21 +332,25 @@ export default function AnalyticsPage() {
               <div className="flex-1 min-w-[200px]">
                 <ResponsiveContainer width="100%" height={100}>
                   <ReLineChart
-                    data={last7}
+                    data={metrics.last7}
                     margin={{ left: 0, right: 0, top: 10, bottom: 0 }}
                   >
-                    <XAxis dataKey="dateISO" hide />
+                    <XAxis 
+                      dataKey="dateISO" 
+                      tickFormatter={(value) => new Date(value).toLocaleDateString('en-US', { weekday: 'short' })}
+                      style={{ fontSize: '10px', fill: '#9CA3AF' }}
+                    />
                     <YAxis domain={[0, 100]} hide />
                     <Tooltip
                       formatter={(v: any) => `${v}%`}
-                      labelFormatter={(l: any) => l}
+                      labelFormatter={(l: any) => new Date(l).toLocaleDateString()}
                     />
                     <Line
                       type="monotone"
                       dataKey="completionPct"
                       stroke="#1DB954"
                       strokeWidth={2}
-                      dot={false}
+                      dot={{ fill: '#1DB954', r: 4 }}
                       connectNulls
                     />
                   </ReLineChart>
@@ -221,13 +361,13 @@ export default function AnalyticsPage() {
             {/* Heatmap */}
             <div className="mt-6">
               <div className="font-semibold mb-2 text-green-400">
-                Monthly Overview
+                Monthly Overview (Last 35 Days)
               </div>
               <div className="grid grid-cols-7 gap-1">
                 {heatmapGrid.map((week, i) =>
                   week.map((d, j) => (
                     <div
-                      key={d.dateISO}
+                      key={`${i}-${j}-${d.dateISO}`}
                       className={`w-6 h-6 rounded ${heatColor(
                         d.completionPct
                       )} flex items-center justify-center text-xs font-mono cursor-pointer group border border-green-500/10`}
@@ -249,29 +389,29 @@ export default function AnalyticsPage() {
               Task Breakdown
             </h2>
             <p className="text-green-300 mb-4">
-              See how you complete tasks by priority, category, and difficulty.
+              See how you complete tasks by priority and difficulty.
             </p>
-            <div className="grid md:grid-cols-3 gap-6">
+            <div className="grid md:grid-cols-2 gap-6">
               {/* Priority Pie */}
               <div>
                 <div className="font-semibold mb-2 text-green-300">
-                  By Priority
+                  By Priority ({metrics.completedTasks.length} completed)
                 </div>
-                {priorities.High + priorities.Medium + priorities.Low > 0 ? (
-                  <ResponsiveContainer width="100%" height={120}>
+                {metrics.completedTasks.length > 0 ? (
+                  <ResponsiveContainer width="100%" height={200}>
                     <PieChart>
                       <Pie
                         data={[
-                          { name: "High", value: priorities.High },
-                          { name: "Medium", value: priorities.Medium },
-                          { name: "Low", value: priorities.Low },
+                          { name: "High", value: metrics.priorities.High },
+                          { name: "Medium", value: metrics.priorities.Medium },
+                          { name: "Low", value: metrics.priorities.Low },
                         ]}
                         dataKey="value"
                         nameKey="name"
                         cx="50%"
                         cy="50%"
-                        outerRadius={40}
-                        label
+                        outerRadius={60}
+                        label={({ name, value }) => `${name}: ${value}`}
                       >
                         <Cell key="High" fill="#EF4444" />
                         <Cell key="Medium" fill="#F59E0B" />
@@ -281,60 +421,34 @@ export default function AnalyticsPage() {
                     </PieChart>
                   </ResponsiveContainer>
                 ) : (
-                  <div className="text-xs text-green-700/70">
-                    No priority data
-                  </div>
-                )}
-              </div>
-              {/* Category Bar */}
-              <div>
-                <div className="font-semibold mb-2 text-green-300">
-                  By Category
-                </div>
-                {Object.keys(categories).length > 0 ? (
-                  <ResponsiveContainer width="100%" height={120}>
-                    <BarChart
-                      data={Object.entries(categories).map(([k, v]) => ({
-                        name: k,
-                        value: v,
-                      }))}
-                    >
-                      <XAxis dataKey="name" hide />
-                      <YAxis hide />
-                      <Bar dataKey="value" fill="#6366F1" />
-                      <Tooltip />
-                    </BarChart>
-                  </ResponsiveContainer>
-                ) : (
-                  <div className="text-xs text-green-700/70">
-                    No category data
+                  <div className="text-xs text-green-700/70 h-[200px] flex items-center justify-center">
+                    No completed tasks yet
                   </div>
                 )}
               </div>
               {/* Difficulty Bar */}
               <div>
                 <div className="font-semibold mb-2 text-green-300">
-                  Avg. Difficulty Completed
+                  By Difficulty
                 </div>
-                {difficulties.Easy + difficulties.Moderate + difficulties.Hard >
-                0 ? (
-                  <ResponsiveContainer width="100%" height={120}>
+                {metrics.completedTasks.length > 0 ? (
+                  <ResponsiveContainer width="100%" height={200}>
                     <BarChart
                       data={[
-                        { name: "Easy", value: difficulties.Easy },
-                        { name: "Moderate", value: difficulties.Moderate },
-                        { name: "Hard", value: difficulties.Hard },
+                        { name: "Easy", value: metrics.difficulties.Easy },
+                        { name: "Moderate", value: metrics.difficulties.Moderate },
+                        { name: "Hard", value: metrics.difficulties.Hard },
                       ]}
                     >
-                      <XAxis dataKey="name" hide />
-                      <YAxis hide />
-                      <Bar dataKey="value" fill="#10B981" />
+                      <XAxis dataKey="name" style={{ fontSize: '12px', fill: '#9CA3AF' }} />
+                      <YAxis style={{ fontSize: '12px', fill: '#9CA3AF' }} />
                       <Tooltip />
+                      <Bar dataKey="value" fill="#10B981" />
                     </BarChart>
                   </ResponsiveContainer>
                 ) : (
-                  <div className="text-xs text-green-700/70">
-                    No difficulty data
+                  <div className="text-xs text-green-700/70 h-[200px] flex items-center justify-center">
+                    No completed tasks yet
                   </div>
                 )}
               </div>
@@ -349,47 +463,43 @@ export default function AnalyticsPage() {
             <p className="text-green-300 mb-4">
               Track your streaks and productivity patterns.
             </p>
-            <div className="grid md:grid-cols-3 gap-6">
+            <div className="grid md:grid-cols-2 gap-6">
               <div>
                 <div className="font-semibold mb-2 text-green-300">
                   Active Streak
                 </div>
                 <div className="text-3xl font-bold text-green-400 matrix-font-large drop-shadow-lg">
-                  {streak} days
+                  {metrics.streak} {metrics.streak === 1 ? 'day' : 'days'}
                 </div>
-              </div>
-              <div>
-                <div className="font-semibold mb-2 text-green-300">
-                  Avg. Time to Complete
+                <div className="text-xs text-green-300 mt-1">
+                  {metrics.streak > 0 ? 'Keep it up! 🔥' : 'Start completing tasks to build your streak!'}
                 </div>
-                {timeCount > 0 ? (
-                  <div className="text-lg text-green-400 matrix-font drop-shadow-lg">
-                    {Math.round(totalTime / timeCount / 60000)} min
-                  </div>
-                ) : (
-                  <div className="text-xs text-green-700/70">
-                    Not enough data yet
-                  </div>
-                )}
               </div>
               <div>
                 <div className="font-semibold mb-2 text-green-300">
                   Peak Productivity Hours
                 </div>
-                {hours.some((h) => h > 0) ? (
-                  <ResponsiveContainer width="100%" height={60}>
+                {metrics.hours.some((h) => h > 0) ? (
+                  <ResponsiveContainer width="100%" height={120}>
                     <BarChart
-                      data={hours.map((v, i) => ({ name: i, value: v }))}
+                      data={metrics.hours.map((v, i) => ({ hour: i, count: v }))}
                     >
-                      <XAxis dataKey="name" hide />
-                      <YAxis hide />
-                      <Bar dataKey="value" fill="#1DB954" />
-                      <Tooltip />
+                      <XAxis 
+                        dataKey="hour" 
+                        style={{ fontSize: '10px', fill: '#9CA3AF' }}
+                        interval={2}
+                      />
+                      <YAxis style={{ fontSize: '10px', fill: '#9CA3AF' }} />
+                      <Tooltip 
+                        formatter={(value: any) => `${value} tasks`}
+                        labelFormatter={(label: any) => `${label}:00`}
+                      />
+                      <Bar dataKey="count" fill="#1DB954" />
                     </BarChart>
                   </ResponsiveContainer>
                 ) : (
-                  <div className="text-xs text-green-700/70">
-                    No productivity hour data
+                  <div className="text-xs text-green-700/70 h-[120px] flex items-center justify-center">
+                    No productivity hour data yet
                   </div>
                 )}
               </div>
@@ -402,27 +512,14 @@ export default function AnalyticsPage() {
               AI Insights
             </h2>
             <p className="text-green-300 mb-4">
-              Simple predictions and patterns based on your recent activity.
+              Personalized insights based on your activity.
             </p>
-            <div className="flex flex-col md:flex-row gap-6">
-              <div className="flex-1">
-                <div className="font-semibold mb-2 text-green-300">
-                  Predicted Productivity (next 7d)
+            <div className="space-y-3">
+              {aiInsights.map((insight, i) => (
+                <div key={i} className="bg-white/5 rounded-lg p-3 border border-green-500/20">
+                  <p className="text-green-200 text-sm">{insight}</p>
                 </div>
-                <div className="text-3xl font-bold text-green-400 matrix-font-large drop-shadow-lg">
-                  {forecast}%
-                </div>
-              </div>
-              <div className="flex-1">
-                <div className="font-semibold mb-2 text-green-300">
-                  Missed Task Patterns
-                </div>
-                <ul className="list-disc pl-5 text-sm text-green-200">
-                  {aiInsights.map((ins, i) => (
-                    <li key={i}>{ins}</li>
-                  ))}
-                </ul>
-              </div>
+              ))}
             </div>
           </section>
         </div>

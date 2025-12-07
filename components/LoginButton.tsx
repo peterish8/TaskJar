@@ -36,12 +36,11 @@ export default function LoginButton() {
     setError("");
     setLoading(true);
     try {
+      // OAuth will redirect immediately, so we don't need to handle navigation here
       await signInWithGoogle();
-      // Redirect to main app after successful login
-      router.push("/");
+      // Note: signInWithOAuth redirects the browser immediately, so code after this won't execute
     } catch (error: any) {
       setError(error.message);
-    } finally {
       setLoading(false);
     }
   };

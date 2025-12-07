@@ -732,9 +732,10 @@ export default function TaskJarApp() {
           ...task,
           completed: false,
           completedAt: undefined,
+          scheduledFor: undefined, // Ensure no scheduledFor date
         });
       }
-    playSound("generate");
+      playSound("generate");
     } catch (error) {
       console.error("Failed to add tasks:", error);
     }
