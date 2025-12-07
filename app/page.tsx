@@ -13,7 +13,6 @@ import TodoPage from "./components/todo-page";
 import JarsPage from "./components/jars-page";
 import SettingsPage from "./components/settings-page";
 import WeeklyDumpPage from "./components/weekly-dump-page";
-import DynamicIsland from "./components/dynamic-island";
 import HistoryModal from "./components/history-modal";
 import AddTaskModal from "./components/add-task-modal";
 import { PlusCircle } from "lucide-react";
@@ -91,12 +90,13 @@ export default function TaskJarApp() {
     updateCompletion();
   }, [tasks, user, dataLoading, updateDailyCompletion]);
 
-  // Immediate redirect to landing if not authenticated
+  // Redirect authenticated users from landing to app
   useEffect(() => {
-    if (!loading && !user) {
-      router.replace("/landing");
+    if (!loading && user) {
+      // User is authenticated, stay on main app
+      return;
     }
-  }, [user, loading, router]);
+  }, [user, loading]);
 
   // All useEffect hooks at the top
   useEffect(() => {
@@ -164,7 +164,134 @@ export default function TaskJarApp() {
   }
 
   if (!user) {
-    return null;
+    // Show landing page for unauthenticated users
+    return (
+      <div className="min-h-screen bg-black text-white">
+        {/* Hero Section */}
+        <div className="container mx-auto px-4 py-20">
+          <div className="text-center max-w-4xl mx-auto">
+            <h1 className="text-6xl md:text-7xl font-bold text-green-400 mb-6">
+              TaskJar
+            </h1>
+            <h2 className="text-3xl md:text-4xl font-semibold text-white mb-6">
+              AI-Powered Task Management
+            </h2>
+            <p className="text-xl text-gray-400 mb-10">
+              Transform your productivity with intelligent task organization, gamified progress tracking, and AI-powered planning.
+            </p>
+            <LoginButton />
+          </div>
+        </div>
+
+        {/* Features Section */}
+        <div className="container mx-auto px-4 py-16">
+          <h3 className="text-3xl font-bold text-center text-green-400 mb-12">
+            Why TaskJar?
+          </h3>
+          <div className="grid md:grid-cols-3 gap-8 max-w-6xl mx-auto">
+            <div className="bg-white/5 p-6 rounded-lg border border-green-500/30">
+              <div className="text-4xl mb-4">🤖</div>
+              <h4 className="text-xl font-semibold text-green-400 mb-3">AI Task Generation</h4>
+              <p className="text-gray-400">
+                Describe your goals in natural language and let AI break them down into actionable tasks with priorities and difficulty levels.
+              </p>
+            </div>
+            <div className="bg-white/5 p-6 rounded-lg border border-green-500/30">
+              <div className="text-4xl mb-4">🏆</div>
+              <h4 className="text-xl font-semibold text-green-400 mb-3">Gamified Progress</h4>
+              <p className="text-gray-400">
+                Earn XP for completing tasks and fill up jars. Watch your productivity visualized in a fun, motivating way.
+              </p>
+            </div>
+            <div className="bg-white/5 p-6 rounded-lg border border-green-500/30">
+              <div className="text-4xl mb-4">📅</div>
+              <h4 className="text-xl font-semibold text-green-400 mb-3">Weekly Planning</h4>
+              <p className="text-gray-400">
+                Dump your entire week's thoughts and let AI organize them into a structured daily schedule automatically.
+              </p>
+            </div>
+            <div className="bg-white/5 p-6 rounded-lg border border-green-500/30">
+              <div className="text-4xl mb-4">📊</div>
+              <h4 className="text-xl font-semibold text-green-400 mb-3">Analytics Dashboard</h4>
+              <p className="text-gray-400">
+                Track your completion rates, streaks, and productivity patterns with detailed analytics and insights.
+              </p>
+            </div>
+            <div className="bg-white/5 p-6 rounded-lg border border-green-500/30">
+              <div className="text-4xl mb-4">⚡</div>
+              <h4 className="text-xl font-semibold text-green-400 mb-3">Smart Prioritization</h4>
+              <p className="text-gray-400">
+                Tasks are automatically categorized by priority (urgent, scheduled, optional) and difficulty (light, standard, challenging).
+              </p>
+            </div>
+            <div className="bg-white/5 p-6 rounded-lg border border-green-500/30">
+              <div className="text-4xl mb-4">🎯</div>
+              <h4 className="text-xl font-semibold text-green-400 mb-3">Goal Tracking</h4>
+              <p className="text-gray-400">
+                Set XP targets, track your jars collection, and celebrate milestones as you complete your tasks.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* How It Works */}
+        <div className="container mx-auto px-4 py-16">
+          <h3 className="text-3xl font-bold text-center text-green-400 mb-12">
+            How It Works
+          </h3>
+          <div className="max-w-3xl mx-auto space-y-8">
+            <div className="flex gap-4">
+              <div className="flex-shrink-0 w-12 h-12 bg-green-600 rounded-full flex items-center justify-center text-xl font-bold">1</div>
+              <div>
+                <h4 className="text-xl font-semibold text-white mb-2">Sign In with Google</h4>
+                <p className="text-gray-400">Quick and secure authentication to get started in seconds.</p>
+              </div>
+            </div>
+            <div className="flex gap-4">
+              <div className="flex-shrink-0 w-12 h-12 bg-green-600 rounded-full flex items-center justify-center text-xl font-bold">2</div>
+              <div>
+                <h4 className="text-xl font-semibold text-white mb-2">Add Tasks with AI</h4>
+                <p className="text-gray-400">Type what you need to do in plain English, and AI generates structured tasks.</p>
+              </div>
+            </div>
+            <div className="flex gap-4">
+              <div className="flex-shrink-0 w-12 h-12 bg-green-600 rounded-full flex items-center justify-center text-xl font-bold">3</div>
+              <div>
+                <h4 className="text-xl font-semibold text-white mb-2">Complete & Earn XP</h4>
+                <p className="text-gray-400">Check off tasks to earn XP based on difficulty and fill up your jars.</p>
+              </div>
+            </div>
+            <div className="flex gap-4">
+              <div className="flex-shrink-0 w-12 h-12 bg-green-600 rounded-full flex items-center justify-center text-xl font-bold">4</div>
+              <div>
+                <h4 className="text-xl font-semibold text-white mb-2">Track Your Progress</h4>
+                <p className="text-gray-400">View analytics, maintain streaks, and watch your productivity soar.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* CTA Section */}
+        <div className="container mx-auto px-4 py-20">
+          <div className="max-w-2xl mx-auto text-center bg-gradient-to-r from-green-600/20 to-green-400/20 p-12 rounded-2xl border border-green-500/30">
+            <h3 className="text-3xl font-bold text-white mb-4">
+              Ready to Level Up Your Productivity?
+            </h3>
+            <p className="text-gray-300 mb-8">
+              Join TaskJar today and experience the future of task management.
+            </p>
+            <LoginButton />
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="border-t border-white/10 py-8">
+          <div className="container mx-auto px-4 text-center text-gray-400">
+            <p>© 2025 TaskJar. AI-Powered Todo List by prats</p>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   // Show error state if data loading failed
@@ -420,14 +547,6 @@ export default function TaskJarApp() {
               <PlusCircle className="w-5 h-5 text-green-400" />
             </button>
           </div>
-        )}
-        {activeSection === "todo" && currentJar && (
-          <DynamicIsland
-            jar={currentJar}
-            tasks={tasks}
-            jars={jars}
-            onHistoryClick={() => setShowHistory(true)}
-          />
         )}
 
         {/* Main Content */}
