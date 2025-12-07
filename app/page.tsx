@@ -128,7 +128,11 @@ export default function TaskJarApp() {
         tasks: [],
       };
       addJar(newJarData).then((newJar) => {
-        setCurrentJar(newJar);
+        if (newJar) {
+          setCurrentJar(newJar);
+        }
+      }).catch((error) => {
+        console.error('Failed to create jar:', error);
       });
     }
   }, [jars, settings.jarTarget, user, dataLoading, addJar, updateJar]);
@@ -150,8 +154,11 @@ export default function TaskJarApp() {
   // Conditional rendering after all hooks
   if (!isHydrated || isAppLoading) {
     return (
-      <div className="min-h-screen bg-gray-900 flex items-center justify-center">
-        <div className="text-white text-xl">Loading TaskJar...</div>
+      <div className="min-h-screen bg-black flex items-center justify-center">
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-16 h-16 border-4 border-green-500/30 border-t-green-500 rounded-full animate-spin"></div>
+          <div className="text-green-400 text-xl font-semibold">Loading TaskJar...</div>
+        </div>
       </div>
     );
   }
@@ -163,13 +170,13 @@ export default function TaskJarApp() {
   // Show error state if data loading failed
   if (dataError) {
     return (
-      <div className="min-h-screen bg-gray-900 flex items-center justify-center">
-        <div className="text-center text-white">
-          <div className="text-red-400 text-xl mb-4">Failed to load data</div>
-          <div className="text-gray-400">{dataError}</div>
+      <div className="min-h-screen bg-black flex items-center justify-center">
+        <div className="text-center">
+          <div className="text-red-400 text-xl mb-4 font-semibold">Failed to load data</div>
+          <div className="text-gray-400 mb-6">{dataError}</div>
           <button
             onClick={() => window.location.reload()}
-            className="mt-4 px-4 py-2 bg-blue-600 rounded hover:bg-blue-700"
+            className="px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-semibold"
           >
             Retry
           </button>
@@ -275,7 +282,9 @@ export default function TaskJarApp() {
       };
 
       const newJar = await addJar(newJarData);
-      setCurrentJar(newJar);
+      if (newJar) {
+        setCurrentJar(newJar);
+      }
     } else {
       // Just update current jar
       await updateJar(currentJar.id, jarUpdates);
@@ -360,7 +369,9 @@ export default function TaskJarApp() {
         completed: false,
         tasks: [],
       });
-      setCurrentJar(newJar);
+      if (newJar) {
+        setCurrentJar(newJar);
+      }
 
       playSound("click");
     } catch (error) {

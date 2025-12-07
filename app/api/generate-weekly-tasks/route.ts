@@ -48,14 +48,23 @@ export async function POST(req: NextRequest) {
   try {
     const { prompt, weekWindow } = await req.json();
 
-    // Get the authenticated user from Supabase
+    // Get the authenticated user from the Authorization header
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return NextResponse.json(
+        { error: "Authentication required" },
+        { status: 401 }
+      );
+    }
+
+    const token = authHeader.replace('Bearer ', '');
     const {
       data: { user },
       error: authError,
-    } = await supabase.auth.getUser();
+    } = await supabase.auth.getUser(token);
     if (authError || !user) {
       return NextResponse.json(
-        { error: "Authentication required" },
+        { error: "Invalid authentication" },
         { status: 401 }
       );
     }
@@ -167,43 +176,7 @@ User input: "${prompt}"`;
       };
     });
 
-    // Save tasks to database using Supabase services
-    const savedTasks = [];
-    for (const task of validatedTasks) {
-      try {
-        // Convert to our task format
-        const taskData = {
-          name: task.name,
-          description: task.description,
-          priority: mapPriority(task.priority),
-          difficulty: mapDifficulty(task.difficulty),
-          xpValue: getXpValue(task.difficulty),
-          completed: false,
-          scheduledFor: task.scheduledDate,
-        };
-
-        const savedTask = await taskService.createTask(userId, taskData);
-        savedTasks.push(savedTask);
-      } catch (error) {
-        console.error("Error saving task:", error);
-      }
-    }
-
-    // Save weekly dump record
-    try {
-      const archivedWeekData = {
-        startDateISO: weekWindow[0],
-        dates: weekWindow,
-        tasks: savedTasks,
-      };
-      await weeklyDumpService.archiveWeek(userId, archivedWeekData);
-    } catch (error) {
-      console.error("Error saving weekly dump:", error);
-    }
-
-    return NextResponse.json(
-      savedTasks.length > 0 ? savedTasks : validatedTasks
-    );
+    return NextResponse.json(validatedTasks);
   } catch (error) {
     console.error("Error generating weekly tasks:", error);
     return NextResponse.json(

@@ -264,18 +264,29 @@ export const migrationService = {
     console.log('Starting complete data migration for user:', userId);
 
     try {
-      // Migrate in order of dependencies
-      await this.migrateUserSettings(userId, defaultSettings);
-      await this.migrateTasks(userId, defaultSettings);
-      await this.migrateJars(userId);
-      await this.migrateWeeklyDump(userId);
-      await this.migrateAnalytics(userId);
+      // Migrate in order of dependencies - don't fail if one fails
+      await this.migrateUserSettings(userId, defaultSettings).catch(err => {
+        console.warn('Settings migration failed, continuing...', err);
+      });
+      await this.migrateTasks(userId, defaultSettings).catch(err => {
+        console.warn('Tasks migration failed, continuing...', err);
+      });
+      await this.migrateJars(userId).catch(err => {
+        console.warn('Jars migration failed, continuing...', err);
+      });
+      await this.migrateWeeklyDump(userId).catch(err => {
+        console.warn('Weekly dump migration failed, continuing...', err);
+      });
+      await this.migrateAnalytics(userId).catch(err => {
+        console.warn('Analytics migration failed, continuing...', err);
+      });
 
-      console.log('✅ Complete data migration finished successfully!');
+      console.log('✅ Complete data migration finished!');
       return true;
     } catch (error) {
       console.error('❌ Data migration failed:', error);
-      throw error;
+      // Don't throw - allow app to continue
+      return false;
     }
   },
 };

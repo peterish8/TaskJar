@@ -55,14 +55,23 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Get the authenticated user from Supabase
+    // Get the authenticated user from the Authorization header
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return NextResponse.json(
+        { error: "Authentication required" },
+        { status: 401 }
+      );
+    }
+
+    const token = authHeader.replace('Bearer ', '');
     const {
       data: { user },
       error: authError,
-    } = await supabase.auth.getUser();
+    } = await supabase.auth.getUser(token);
     if (authError || !user) {
       return NextResponse.json(
-        { error: "Authentication required" },
+        { error: "Invalid authentication" },
         { status: 401 }
       );
     }
@@ -191,30 +200,7 @@ export async function POST(req: NextRequest) {
       ]);
     }
 
-    // Save tasks to database using Supabase services
-    const savedTasks = [];
-    if (userId) {
-      for (const task of jsonResponse) {
-        try {
-          // Convert AI response format to our task format
-          const taskData = {
-            name: task.name,
-            description: task.description || "",
-            priority: mapPriority(task.priority),
-            difficulty: mapDifficulty(task.difficulty),
-            xpValue: getXpValue(task.difficulty),
-            completed: false,
-          };
-
-          const savedTask = await taskService.createTask(userId, taskData);
-          savedTasks.push(savedTask);
-        } catch (error) {
-          console.error("Error saving task:", error);
-        }
-      }
-    }
-
-    return NextResponse.json(savedTasks.length > 0 ? savedTasks : jsonResponse);
+    return NextResponse.json(jsonResponse);
   } catch (error) {
     console.error("Error generating tasks:", error);
     return NextResponse.json(
