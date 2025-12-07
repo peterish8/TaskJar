@@ -204,7 +204,7 @@ export async function POST(req: NextRequest) {
   } catch (error) {
     console.error("Error generating tasks:", error);
     return NextResponse.json(
-      { error: "Failed to generate tasks", details: error.message },
+      { error: "Failed to generate tasks", details: error instanceof Error ? error.message : 'Unknown error' },
       { status: 500 }
     );
   }

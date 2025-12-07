@@ -77,8 +77,46 @@ export default function LandingPage() {
         .grass-blade {
           transition: transform 0.3s ease-in-out;
         }
+        
+        /* Translucent Glass Scrollbar for Landing Page */
+        html::-webkit-scrollbar,
+        body::-webkit-scrollbar {
+          width: 12px;
+        }
+        
+        html::-webkit-scrollbar-track,
+        body::-webkit-scrollbar-track {
+          background: rgba(0, 0, 0, 0.1);
+          backdrop-filter: blur(20px);
+          -webkit-backdrop-filter: blur(20px);
+          border-radius: 10px;
+        }
+        
+        html::-webkit-scrollbar-thumb,
+        body::-webkit-scrollbar-thumb {
+          background: rgba(255, 255, 255, 0.2);
+          backdrop-filter: blur(20px);
+          -webkit-backdrop-filter: blur(20px);
+          border-radius: 10px;
+          border: 2px solid rgba(255, 255, 255, 0.1);
+          transition: all 0.3s ease;
+        }
+        
+        html::-webkit-scrollbar-thumb:hover,
+        body::-webkit-scrollbar-thumb:hover {
+          background: rgba(255, 255, 255, 0.3);
+          border: 2px solid rgba(255, 255, 255, 0.2);
+          box-shadow: 0 0 10px rgba(255, 255, 255, 0.1);
+        }
+        
+        /* Firefox scrollbar */
+        html,
+        body {
+          scrollbar-width: thin;
+          scrollbar-color: rgba(255, 255, 255, 0.2) rgba(0, 0, 0, 0.1);
+        }
       `}</style>
-      <div className="min-h-screen flex flex-col items-center justify-center bg-black text-white overflow-hidden relative">
+      <div className="min-h-screen flex flex-col items-center justify-center bg-black text-white overflow-y-auto relative landing-page-scroll">
         {isHydrated && (
           <div className="absolute top-0 left-0 w-full h-full">{stars}</div>
         )}
@@ -95,10 +133,10 @@ export default function LandingPage() {
             <h1 className="text-5xl font-bold text-gray-100">TaskJar</h1>
           </div>
           <h2 className="text-6xl font-bold mb-4 text-green-300 leading-tight">
-            AI Powered <br /> To do List
+            STOP FORGETTING. <br /> START ACHIEVING.
           </h2>
           <p className="text-lg text-gray-400 mb-10">
-            Organize your tasks effortlessly with the help of AI.
+            Your AI-powered command center for crushing every task, every day.
           </p>
           <div className="w-full">
             <LoginButton />
