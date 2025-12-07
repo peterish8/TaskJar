@@ -242,8 +242,8 @@ export function useSupabaseData() {
     }
   }, [user]);
 
-  const addWeeklyTask = useCallback(async (taskData: Omit<WeeklyTask, 'id' | 'createdAt'>) => {
-    if (!user) return;
+  const addWeeklyTask = useCallback(async (taskData: Omit<WeeklyTask, 'id' | 'createdAt'>): Promise<WeeklyTask> => {
+    if (!user) throw new Error('User not authenticated');
     try {
       const newTask = await weeklyDumpService.createWeeklyTask(user.id, taskData);
       setWeeklyTasks(prev => [...prev, newTask].sort((a, b) =>

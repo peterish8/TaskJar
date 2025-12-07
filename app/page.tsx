@@ -20,7 +20,7 @@ import { PlusCircle } from "lucide-react";
 import type { AppSettings, Task, Jar } from "./types";
 import { useAuth } from "../contexts/AuthContext";
 import { useRouter } from "next/navigation";
-import { useCompletionUpdater } from "./hooks/useCompletionUpdater";
+
 import { useSupabaseData } from "../lib/use-supabase-data";
 import React, { lazy, Suspense } from "react";
 const AnalyticsPage = lazy(() => import("./analytics/page"));
@@ -143,11 +143,9 @@ export default function TaskJarApp() {
     ) {
       const updatedJar = { ...currentJar, targetXP: settings.jarTarget };
       setCurrentJar(updatedJar);
-      setJars((prevJars) =>
-        prevJars.map((j) => (j.id === currentJar.id ? updatedJar : j))
-      );
+      updateJar(currentJar.id, { targetXP: settings.jarTarget });
     }
-  }, [settings.jarTarget, currentJar]);
+  }, [settings.jarTarget, currentJar, updateJar]);
 
   // Conditional rendering after all hooks
   if (!isHydrated || isAppLoading) {
@@ -159,7 +157,6 @@ export default function TaskJarApp() {
   }
 
   if (!user) {
-    router.replace("/landing");
     return null;
   }
 

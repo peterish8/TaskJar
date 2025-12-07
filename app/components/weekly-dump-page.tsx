@@ -39,13 +39,20 @@ import WeeklyHistoryDrawer from "./weekly-history-drawer";
 interface WeeklyDumpPageProps {
   settings: AppSettings;
   weeklyTasks: WeeklyTask[];
-  addWeeklyTask: (task: Omit<WeeklyTask, "id" | "createdAt">) => Promise<WeeklyTask>;
-  updateWeeklyTask: (taskId: string, updates: Partial<WeeklyTask>) => Promise<WeeklyTask>;
+  addWeeklyTask: (
+    task: Omit<WeeklyTask, "id" | "createdAt">
+  ) => Promise<WeeklyTask>;
+  updateWeeklyTask: (
+    taskId: string,
+    updates: Partial<WeeklyTask>
+  ) => Promise<WeeklyTask>;
   deleteWeeklyTask: (taskId: string) => Promise<void>;
   completeWeeklyTask: (taskId: string) => Promise<WeeklyTask>;
   archivedWeeks: ArchivedWeek[];
   archiveWeek: (weekData: ArchivedWeek) => Promise<void>;
-  handleAddTasks: (tasks: Omit<Task, "id" | "completed" | "completedAt" | "createdAt">[]) => Promise<void>;
+  handleAddTasks: (
+    tasks: Omit<Task, "id" | "completed" | "completedAt" | "createdAt">[]
+  ) => Promise<void>;
   playSound: (type: "click" | "complete" | "generate") => void;
 }
 
@@ -128,7 +135,9 @@ export default function WeeklyDumpPage({
 
     try {
       // Get the current session token for authentication
-      const { data: { session } } = await supabase.auth.getSession();
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
       if (!session?.access_token) {
         throw new Error("Not authenticated");
       }
@@ -137,7 +146,7 @@ export default function WeeklyDumpPage({
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "Authorization": `Bearer ${session.access_token}`,
+          Authorization: `Bearer ${session.access_token}`,
         },
         body: JSON.stringify({
           prompt: weeklyInput,
@@ -190,7 +199,17 @@ export default function WeeklyDumpPage({
         }
       );
 
-      setWeeklyTasks(newWeeklyTasks);
+      // Add all new weekly tasks to Supabase
+      for (const task of newWeeklyTasks) {
+        await addWeeklyTask({
+          name: task.name,
+          description: task.description,
+          priority: task.priority,
+          difficulty: task.difficulty,
+          scheduledDate: task.scheduledDate,
+          completed: false,
+        });
+      }
     } catch (error) {
       console.error("Error processing weekly dump:", error);
     } finally {
@@ -257,7 +276,7 @@ export default function WeeklyDumpPage({
       await updateWeeklyTask(taskId, updates);
       playSound("click");
     } catch (error) {
-      console.error('Failed to update weekly task:', error);
+      console.error("Failed to update weekly task:", error);
     }
   };
 
@@ -266,7 +285,7 @@ export default function WeeklyDumpPage({
       await deleteWeeklyTask(taskId);
       playSound("click");
     } catch (error) {
-      console.error('Failed to delete weekly task:', error);
+      console.error("Failed to delete weekly task:", error);
     }
   };
 

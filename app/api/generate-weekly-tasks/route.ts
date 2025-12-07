@@ -5,28 +5,42 @@ import { supabase } from "@/lib/supabase";
 // Helper functions for task creation
 const mapPriority = (priority: string): "urgent" | "scheduled" | "optional" => {
   switch (priority) {
-    case "high": return "urgent";
-    case "medium": return "scheduled";
-    case "low": return "optional";
-    default: return "optional";
+    case "high":
+      return "urgent";
+    case "medium":
+      return "scheduled";
+    case "low":
+      return "optional";
+    default:
+      return "optional";
   }
 };
 
-const mapDifficulty = (difficulty: string): "light" | "standard" | "challenging" => {
+const mapDifficulty = (
+  difficulty: string
+): "light" | "standard" | "challenging" => {
   switch (difficulty) {
-    case "easy": return "light";
-    case "moderate": return "standard";
-    case "hard": return "challenging";
-    default: return "standard";
+    case "easy":
+      return "light";
+    case "moderate":
+      return "standard";
+    case "hard":
+      return "challenging";
+    default:
+      return "standard";
   }
 };
 
 const getXpValue = (difficulty: string): number => {
   switch (difficulty) {
-    case "easy": return 5;
-    case "moderate": return 10;
-    case "hard": return 15;
-    default: return 10;
+    case "easy":
+      return 5;
+    case "moderate":
+      return 10;
+    case "hard":
+      return 15;
+    default:
+      return 10;
   }
 };
 
@@ -35,7 +49,10 @@ export async function POST(req: NextRequest) {
     const { prompt, weekWindow } = await req.json();
 
     // Get the authenticated user from Supabase
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
     if (authError || !user) {
       return NextResponse.json(
         { error: "Authentication required" },
@@ -95,10 +112,12 @@ User input: "${prompt}"`;
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          contents: [{
-            parts: [{ text: fullPrompt }]
-          }]
-        })
+          contents: [
+            {
+              parts: [{ text: fullPrompt }],
+            },
+          ],
+        }),
       }
     );
 
@@ -166,7 +185,7 @@ User input: "${prompt}"`;
         const savedTask = await taskService.createTask(userId, taskData);
         savedTasks.push(savedTask);
       } catch (error) {
-        console.error('Error saving task:', error);
+        console.error("Error saving task:", error);
       }
     }
 
@@ -179,10 +198,12 @@ User input: "${prompt}"`;
       };
       await weeklyDumpService.archiveWeek(userId, archivedWeekData);
     } catch (error) {
-      console.error('Error saving weekly dump:', error);
+      console.error("Error saving weekly dump:", error);
     }
 
-    return NextResponse.json(savedTasks.length > 0 ? savedTasks : validatedTasks);
+    return NextResponse.json(
+      savedTasks.length > 0 ? savedTasks : validatedTasks
+    );
   } catch (error) {
     console.error("Error generating weekly tasks:", error);
     return NextResponse.json(
