@@ -4,6 +4,20 @@
 **Release target:** TaskJar local-first web app  
 **Persistence schema:** v2
 
+## Architecture verification
+
+TaskJar is fully client-side for user data and application intelligence:
+
+- no Supabase;
+- no authentication/accounts;
+- no cloud database;
+- no server API routes;
+- no server-side AI SDK;
+- no subscription or usage billing;
+- no raw microphone upload.
+
+Public runtime and model assets are downloaded from CDN/Hugging Face sources when a user enables local speech or installs a local planning model. Those downloads do not contain TaskJar user data.
+
 ## Shipped in this implementation
 
 ### Voice capture
