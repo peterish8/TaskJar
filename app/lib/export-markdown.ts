@@ -9,14 +9,32 @@ function safeDate(timestamp?: number): string {
 function taskLine(task: Task): string {
   const status = task.completed ? "x" : " "
   const date = task.scheduledFor ?? format(new Date(task.createdAt), "yyyy-MM-dd")
-  return `- [${status}] **${task.name}**\n  - Date: ${date}\n  - Priority: ${task.priority}\n  - Difficulty: ${task.difficulty}\n  - XP: ${task.xpValue}\n  - Source: ${task.source ?? "manual"}\n  - Description: ${task.description || "No description"}\n  - Created: ${safeDate(task.createdAt)}\n  - Completed: ${safeDate(task.completedAt)}`
+  const subtasks = (task.subtasks || []).length
+    ? `\n  - Subtasks:\n${(task.subtasks || []).map((subtask) => `    - [${subtask.completed ? "x" : " "}] ${subtask.title}${subtask.estimatedMinutes ? ` (${subtask.estimatedMinutes} min)` : ""}`).join("\n")}`
+    : ""
+  return `- [${status}] **${task.name}**
+  - Date: ${date}
+  - Suggested time: ${task.suggestedStartTime || "Flexible"}
+  - Timing basis: ${task.timingConstraintSource || "none"}${task.timingReason ? ` — ${task.timingReason}` : ""}
+  - Priority: ${task.priority}
+  - Difficulty: ${task.difficulty}
+  - Energy: ${task.energy || "not recorded"}
+  - Estimated active time: ${task.estimatedMinutes ? `${task.estimatedMinutes} min` : "not estimated"}
+  - Actual active time: ${task.actualMinutes ? `${task.actualMinutes} min` : "not recorded"}
+  - XP: ${task.xpValue}${task.xpAwarded ? " (awarded)" : ""}
+  - Source: ${task.source ?? "manual"}
+  - Description: ${task.description || "No description"}
+  - Created: ${safeDate(task.createdAt)}
+  - Completed: ${safeDate(task.completedAt)}${subtasks}`
 }
 
 export function buildJourneyMarkdown(tasks: Task[], jars: Jar[], settings: AppSettings): string {
   const completed = tasks.filter((task) => task.completed)
   const pending = tasks.filter((task) => !task.completed)
-  const totalXP = completed.reduce((sum, task) => sum + task.xpValue, 0)
+  const totalXP = completed.filter((task) => task.xpAwarded !== false).reduce((sum, task) => sum + task.xpValue, 0)
   const completedJars = jars.filter((jar) => jar.completed)
+  const estimated = tasks.reduce((sum, task) => sum + (task.estimatedMinutes || 0), 0)
+  const actual = tasks.reduce((sum, task) => sum + (task.actualMinutes || 0), 0)
   const sortedTasks = [...tasks].sort((a, b) => {
     const aDate = a.scheduledFor ?? format(new Date(a.createdAt), "yyyy-MM-dd")
     const bDate = b.scheduledFor ?? format(new Date(b.createdAt), "yyyy-MM-dd")
@@ -32,7 +50,7 @@ export function buildJourneyMarkdown(tasks: Task[], jars: Jar[], settings: AppSe
 
   return `# TaskJar Journey Export
 
-> A local-first productivity history exported from TaskJar. This file contains no account or cloud identifiers.
+> A local-first productivity history exported from TaskJar. This file contains no account or cloud identifiers and does not include full voice transcripts.
 
 - **Owner:** ${settings.studentName || "TaskJar user"}
 - **Exported:** ${safeDate(Date.now())}
@@ -42,6 +60,8 @@ export function buildJourneyMarkdown(tasks: Task[], jars: Jar[], settings: AppSe
 - **Completion rate:** ${tasks.length ? Math.round((completed.length / tasks.length) * 100) : 0}%
 - **XP earned:** ${totalXP}
 - **Completed jars:** ${completedJars.length}
+- **Total estimated time:** ${estimated ? `${estimated} min` : "not available"}
+- **Total recorded actual time:** ${actual ? `${actual} min` : "not available"}
 
 ## Current focus
 
@@ -57,7 +77,7 @@ ${jarHistory || "No jars yet."}
 
 ## AI handoff prompt
 
-Use the TaskJar history above as context. First summarise my execution patterns, unfinished commitments, recurring bottlenecks, and strongest areas. Then propose a realistic next plan that preserves unfinished work, avoids duplicating completed work, and clearly distinguishes assumptions from facts.
+Use the TaskJar history above as execution context. Summarise my completion patterns, unfinished commitments, estimate accuracy, recurring bottlenecks, and strongest areas. Then propose a realistic next plan that preserves unfinished work, avoids duplicating completed work, respects the timing evidence recorded above, and clearly distinguishes assumptions from facts.
 `
 }
 
