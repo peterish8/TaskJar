@@ -1,7 +1,18 @@
 export type Priority = "urgent" | "scheduled" | "optional"
 export type Difficulty = "light" | "standard" | "challenging"
-export type TaskSource = "manual" | "daily-ai" | "weekly-ai"
+export type TaskSource = "manual" | "daily-ai" | "weekly-ai" | "voice-ai"
 export type LocalModelId = "gemma-270m" | "gemma-1b"
+export type EnergyLevel = "low" | "medium" | "high"
+export type Daypart = "morning" | "afternoon" | "evening" | "night" | "anytime"
+export type ConstraintSource = "explicit" | "inferred" | "none"
+
+export interface Subtask {
+  id: string
+  title: string
+  completed: boolean
+  estimatedMinutes?: number
+  completedAt?: number
+}
 
 export interface Task {
   id: string
@@ -19,6 +30,20 @@ export interface Task {
   scheduledFor?: string
   source?: TaskSource
   originalPrompt?: string
+  estimatedMinutes?: number
+  energy?: EnergyLevel
+  suggestedStartTime?: string
+  preferredDaypart?: Daypart
+  timingConstraintSource?: ConstraintSource
+  timingReason?: string
+  sourceTranscript?: string
+  aiGenerated?: boolean
+  planningConfidence?: number
+  subtasks?: Subtask[]
+  actualMinutes?: number
+  warnings?: string[]
+  /** Prevents XP farming after a task is reopened and completed again. */
+  xpAwarded?: boolean
 }
 
 export interface Jar {
@@ -32,6 +57,7 @@ export interface Jar {
 }
 
 export interface AppSettings {
+  schemaVersion: 2
   studentName: string
   xpValues: {
     light: number
@@ -45,17 +71,46 @@ export interface AppSettings {
   }
   preferences: {
     soundEnabled: boolean
+    timezone: string
     theme: "dark"
+    wakeTime: string
+    sleepTime: string
+    preferredFocusPeriod: "morning" | "afternoon" | "evening"
+    maxPlannedMinutesPerDay: number
   }
   localAI: {
     selectedModelId: LocalModelId
   }
+  voice: {
+    modelId: "whisper-tiny.en"
+    languageTag: "en"
+    hasAcknowledgedDisclosure: boolean
+  }
 }
 
 export interface GeneratedTask {
+  clientId?: string
   name: string
   description: string
   priority: Priority
   difficulty: Difficulty
   scheduledFor?: string
+  selected?: boolean
+  estimatedMinutes?: number
+  energy?: EnergyLevel
+  suggestedStartTime?: string
+  preferredDaypart?: Daypart
+  timingConstraintSource?: ConstraintSource
+  timingReason?: string
+  planningConfidence?: number
+  subtasks?: Subtask[]
+  sourceExcerpt?: string
+  warnings?: string[]
+}
+
+export interface PlanResult {
+  tasks: GeneratedTask[]
+  totalEstimatedMinutes: number
+  planningWarnings: string[]
+  unparsedNotes: string[]
 }
