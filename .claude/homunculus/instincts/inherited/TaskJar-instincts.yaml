@@ -1,0 +1,344 @@
+# Instincts generated from https://github.com/peterish8/TaskJar
+# Generated: 2026-07-26T19:36:50.129Z
+# Version: 2.0
+# NOTE: This file supplements (does not replace) any existing curated instincts.
+# High-confidence manually curated instincts should be preserved alongside these.
+
+---
+id: TaskJar-commit-conventional
+trigger: "when writing a commit message"
+confidence: 0.85
+domain: git
+source: repo-analysis
+source_repo: https://github.com/peterish8/TaskJar
+---
+
+# TaskJar Commit Conventional
+
+## Action
+
+Use conventional commit format with prefixes: docs
+
+## Evidence
+
+- 7 commits analyzed
+- Detected conventional commit pattern
+- Examples: docs: define voice-first TaskJar direction, docs: specify voice planning requirements
+
+---
+id: TaskJar-commit-length
+trigger: "when writing a commit message"
+confidence: 0.6
+domain: git
+source: repo-analysis
+source_repo: https://github.com/peterish8/TaskJar
+---
+
+# TaskJar Commit Length
+
+## Action
+
+Keep commit messages concise (~38 characters)
+
+## Evidence
+
+- Average commit message length: 38 chars
+- Based on 7 commits
+
+---
+id: TaskJar-naming-files
+trigger: "when creating a new file"
+confidence: 0.8
+domain: code-style
+source: repo-analysis
+source_repo: https://github.com/peterish8/TaskJar
+---
+
+# TaskJar Naming Files
+
+## Action
+
+Use snake_case naming convention
+
+## Evidence
+
+- Analyzed file naming patterns in repository
+- Dominant pattern: snake_case
+
+---
+id: TaskJar-import-relative
+trigger: "when importing modules"
+confidence: 0.75
+domain: code-style
+source: repo-analysis
+source_repo: https://github.com/peterish8/TaskJar
+---
+
+# TaskJar Import Relative
+
+## Action
+
+Use relative imports for project files
+
+## Evidence
+
+- Import analysis shows relative import pattern
+- Example: import { x } from '../lib/x'
+
+---
+id: TaskJar-export-style
+trigger: "when exporting from a module"
+confidence: 0.7
+domain: code-style
+source: repo-analysis
+source_repo: https://github.com/peterish8/TaskJar
+---
+
+# TaskJar Export Style
+
+## Action
+
+Prefer named exports
+
+## Evidence
+
+- Export pattern analysis
+- Dominant style: named
+
+---
+id: TaskJar-test-separate
+trigger: "when writing tests"
+confidence: 0.8
+domain: testing
+source: repo-analysis
+source_repo: https://github.com/peterish8/TaskJar
+---
+
+# TaskJar Test Separate
+
+## Action
+
+Place tests in the tests/ or __tests__/ directory, mirroring src structure
+
+## Evidence
+
+- Separate test directory pattern detected
+- Tests live in dedicated test folders
+
+---
+id: TaskJar-workflow-add-new-planning-document
+trigger: "when doing add new planning document"
+confidence: 0.8
+domain: workflow
+source: repo-analysis
+source_repo: https://github.com/peterish8/TaskJar
+---
+
+# TaskJar Workflow Add New Planning Document
+
+## Action
+
+Follow the add-new-planning-document workflow:
+1. Create a new markdown file in the .planning directory for the specific planning aspect.
+2. Write or update the content relevant to that aspect.
+3. Commit the new file with a 'docs: add' or 'docs: define' message.
+
+## Evidence
+
+- Workflow detected from commit patterns
+- Frequency: ~6x per month
+- Files: .planning/*.md
+
+---
+id: taskjar-instinct-file-naming
+trigger: "When creating a new file in the codebase"
+confidence: 0.8
+domain: code-style
+source: repo-analysis
+source_repo: peterish8/TaskJar
+---
+
+# Taskjar Instinct File Naming
+
+## Action
+
+Name the file using snake_case
+
+## Evidence
+
+- Pattern in namingConventions.files: snake_case
+
+---
+id: taskjar-instinct-function-naming
+trigger: "When defining a new function"
+confidence: 0.8
+domain: code-style
+source: repo-analysis
+source_repo: peterish8/TaskJar
+---
+
+# Taskjar Instinct Function Naming
+
+## Action
+
+Use camelCase for the function name
+
+## Evidence
+
+- Pattern in namingConventions.functions: camelCase
+
+---
+id: taskjar-instinct-class-naming
+trigger: "When defining a new class"
+confidence: 0.8
+domain: code-style
+source: repo-analysis
+source_repo: peterish8/TaskJar
+---
+
+# Taskjar Instinct Class Naming
+
+## Action
+
+Use PascalCase for the class name
+
+## Evidence
+
+- Pattern in namingConventions.classes: PascalCase
+
+---
+id: taskjar-instinct-constant-naming
+trigger: "When defining a constant"
+confidence: 0.8
+domain: code-style
+source: repo-analysis
+source_repo: peterish8/TaskJar
+---
+
+# Taskjar Instinct Constant Naming
+
+## Action
+
+Use SCREAMING_SNAKE_CASE for the constant name
+
+## Evidence
+
+- Pattern in namingConventions.constants: SCREAMING_SNAKE_CASE
+
+---
+id: taskjar-instinct-import-style
+trigger: "When importing modules"
+confidence: 0.8
+domain: code-style
+source: repo-analysis
+source_repo: peterish8/TaskJar
+---
+
+# Taskjar Instinct Import Style
+
+## Action
+
+Use relative import paths
+
+## Evidence
+
+- Pattern in importStyle: relative
+
+---
+id: taskjar-instinct-export-style
+trigger: "When exporting modules or functions"
+confidence: 0.8
+domain: code-style
+source: repo-analysis
+source_repo: peterish8/TaskJar
+---
+
+# Taskjar Instinct Export Style
+
+## Action
+
+Use named exports
+
+## Evidence
+
+- Pattern in exportStyle: named
+
+---
+id: taskjar-instinct-test-location
+trigger: "When adding or updating tests"
+confidence: 0.7
+domain: testing
+source: repo-analysis
+source_repo: peterish8/TaskJar
+---
+
+# Taskjar Instinct Test Location
+
+## Action
+
+Place test files in a separate directory from source code
+
+## Evidence
+
+- architecture.folderStructure.testLocation: separate
+
+---
+id: taskjar-instinct-git-commit-format
+trigger: "When making a git commit"
+confidence: 0.9
+domain: git
+source: repo-analysis
+source_repo: peterish8/TaskJar
+---
+
+# Taskjar Instinct Git Commit Format
+
+## Action
+
+Use the conventional commit format with a prefix (e.g., 'docs: add ...')
+
+## Evidence
+
+- Pattern in commits.type: conventional
+- Examples: 'docs: define voice-first TaskJar direction', 'docs: add voice planning architecture'
+
+---
+id: taskjar-instinct-docs-prefix
+trigger: "When committing documentation or planning changes"
+confidence: 0.9
+domain: git
+source: repo-analysis
+source_repo: peterish8/TaskJar
+---
+
+# Taskjar Instinct Docs Prefix
+
+## Action
+
+Prefix the commit message with 'docs:'
+
+## Evidence
+
+- Pattern in commits.prefixes: docs
+- Examples: 'docs: define planning data model', 'docs: add phased voice implementation plan'
+
+---
+id: taskjar-instinct-add-planning-doc
+trigger: "When someone wants to document a new aspect of the project planning"
+confidence: 0.95
+domain: workflow
+source: repo-analysis
+source_repo: peterish8/TaskJar
+---
+
+# Taskjar Instinct Add Planning Doc
+
+## Action
+
+Create a new markdown file in the .planning directory, write or update relevant content, and commit with a 'docs: add' or 'docs: define' message
+
+## Evidence
+
+- Workflow: add-new-planning-document
+- Example commit sequence and files: .planning/*.md
+
