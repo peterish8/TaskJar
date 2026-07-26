@@ -26,7 +26,6 @@ export interface Task {
   completed: boolean
   completedAt?: number
   createdAt: number
-  /** Local date key in yyyy-MM-dd format. */
   scheduledFor?: string
   source?: TaskSource
   originalPrompt?: string
@@ -42,7 +41,6 @@ export interface Task {
   subtasks?: Subtask[]
   actualMinutes?: number
   warnings?: string[]
-  /** Prevents XP farming after a task is reopened and completed again. */
   xpAwarded?: boolean
 }
 
@@ -68,6 +66,12 @@ export interface AppSettings {
   emojis: {
     priority: Record<Priority, string>
     difficulty: Record<Difficulty, string>
+  }
+  parentLock: {
+    enabled: boolean
+    password: string
+    securityQuestion: string
+    securityAnswer: string
   }
   preferences: {
     soundEnabled: boolean
