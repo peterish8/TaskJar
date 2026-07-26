@@ -11,9 +11,8 @@ const spaceGrotesk = Space_Grotesk({
 })
 
 export const metadata: Metadata = {
-  title: "TaskJar - AI-Powered Productivity",
-  description: "Gamified task management with AI-powered task generation",
-  generator: 'v0.dev',
+  title: "TaskJar — Local-first planner",
+  description: "A private, browser-local gamified task planner.",
   icons: {
     icon: [
       { url: '/icon.png', sizes: '32x32', type: 'image/png' },

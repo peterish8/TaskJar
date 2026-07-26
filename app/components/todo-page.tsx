@@ -11,7 +11,7 @@ import { Badge } from "@/components/ui/badge"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import type { Task, AppSettings } from "../types"
-import { supabase } from "@/lib/supabase"
+import VoiceCaptureCard from "../features/voice-capture/components/voice-capture-card"
 
 interface TodoPageProps {
   tasks: Task[]
@@ -21,9 +21,10 @@ interface TodoPageProps {
   completeTask: (taskId: string) => void
   deleteTask: (taskId: string) => Promise<void>
   playSound: (type: "click" | "complete" | "generate") => void
+  onPlanRequest: (transcript: string) => void
 }
 
-export default function TodoPage({ tasks, updateTask, addTasks, settings, completeTask, deleteTask, playSound }: TodoPageProps) {
+export default function TodoPage({ tasks, updateTask, addTasks, settings, completeTask, deleteTask, playSound, onPlanRequest }: TodoPageProps) {
   const [aiInput, setAiInput] = useState("")
   const [generatedTasks, setGeneratedTasks] = useState<Partial<Task>[]>([])
   const [isGenerating, setIsGenerating] = useState(false)
@@ -52,55 +53,10 @@ export default function TodoPage({ tasks, updateTask, addTasks, settings, comple
    }
  
    // AI Task Generation
-   const generateTasks = async () => {
+   const generateTasks = () => {
      if (!aiInput.trim()) return
- 
-     setIsGenerating(true)
      playSound("generate")
- 
-     try {
-       // Get the current session token for authentication
-       const { data: { session } } = await supabase.auth.getSession();
-       if (!session?.access_token) {
-         throw new Error("Not authenticated");
-       }
-
-       const response = await fetch("/api/generate-tasks", {
-         method: "POST",
-         headers: {
-           "Content-Type": "application/json",
-           "Authorization": `Bearer ${session.access_token}`,
-         },
-         body: JSON.stringify({ prompt: aiInput }),
-       })
- 
-       if (!response.ok) {
-         throw new Error("Failed to generate tasks")
-       }
- 
-       const tasksFromApi = await response.json()
- 
-       const newTasks: Partial<Task>[] = tasksFromApi.map((task: any) => {
-         const difficulty = mapDifficulty(task.difficulty)
-         const priority = mapPriority(task.priority)
-         return {
-           name: task.name,
-           description: task.description,
-           priority: priority,
-           difficulty: difficulty,
-           priorityEmoji: settings.emojis.priority[priority],
-           difficultyEmoji: settings.emojis.difficulty[difficulty],
-           xpValue: settings.xpValues[difficulty],
-         }
-       })
- 
-       setGeneratedTasks(newTasks)
-       setShowTaskEditor(true)
-     } catch (error) {
-       console.error("Error generating tasks:", error)
-     } finally {
-       setIsGenerating(false)
-     }
+     onPlanRequest(aiInput)
    }
 
   const addTasksToList = async (tasksToAdd: Partial<Task>[]) => {
@@ -197,6 +153,15 @@ export default function TodoPage({ tasks, updateTask, addTasks, settings, comple
         </CardHeader>
         <CardContent>
           <div className="flex flex-col gap-3">
+            <VoiceCaptureCard
+              transcript={aiInput}
+              onTranscriptChange={setAiInput}
+              onMakePlan={() => onPlanRequest(aiInput)}
+              busy={isGenerating}
+              languageTag={settings.voice?.languageTag || "en"}
+              hasAcknowledgedDisclosure={Boolean(settings.voice?.hasAcknowledgedDisclosure)}
+              onAcknowledgeDisclosure={() => {}}
+            />
             <Textarea
               placeholder="Describe today's list of works you wanna achieve in natural language..."
               value={aiInput}
