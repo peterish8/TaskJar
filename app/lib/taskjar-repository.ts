@@ -9,10 +9,7 @@ export interface PersistedTaskJarStateV2 {
   tasks: Task[]
   jars: Jar[]
   settings: AppSettings
-  metadata: {
-    migratedAt?: number
-    lastSavedAt: number
-  }
+  metadata: { migratedAt?: number; lastSavedAt: number }
 }
 
 interface RepositoryOptions {
@@ -43,36 +40,22 @@ export class LocalStorageTaskJarRepository {
       }
     }
 
-    const rawLegacy = {
-      tasks: localStorage.getItem(LEGACY.tasks),
-      jars: localStorage.getItem(LEGACY.jars),
-      settings: localStorage.getItem(LEGACY.settings),
-    }
-    if (!localStorage.getItem(LEGACY_BACKUP_KEY) && Object.values(rawLegacy).some(Boolean)) {
-      localStorage.setItem(LEGACY_BACKUP_KEY, JSON.stringify({ backedUpAt: Date.now(), ...rawLegacy }))
-    }
+    const rawLegacy = { tasks: localStorage.getItem(LEGACY.tasks), jars: localStorage.getItem(LEGACY.jars), settings: localStorage.getItem(LEGACY.settings) }
+    if (!localStorage.getItem(LEGACY_BACKUP_KEY) && Object.values(rawLegacy).some(Boolean)) localStorage.setItem(LEGACY_BACKUP_KEY, JSON.stringify({ backedUpAt: Date.now(), ...rawLegacy }))
     const settings = this.options.mergeSettings(parseJson<Partial<AppSettings> | undefined>(rawLegacy.settings, undefined))
     const tasks = parseJson<Partial<Task>[]>(rawLegacy.tasks, []).map(this.options.migrateTask)
     const jars = parseJson<Jar[]>(rawLegacy.jars, [])
-    const migrated: PersistedTaskJarStateV2 = {
-      schemaVersion: 2,
-      tasks,
-      jars: jars.length ? jars : [this.options.freshJar(settings.jarTarget)],
-      settings,
-      metadata: { migratedAt: Date.now(), lastSavedAt: Date.now() },
-    }
+    const migrated: PersistedTaskJarStateV2 = { schemaVersion: 2, tasks, jars: jars.length ? jars : [this.options.freshJar(settings.jarTarget)], settings, metadata: { migratedAt: Date.now(), lastSavedAt: Date.now() } }
     this.save(migrated)
     return migrated
   }
 
   save(state: Omit<PersistedTaskJarStateV2, "schemaVersion" | "metadata"> & { metadata?: Partial<PersistedTaskJarStateV2["metadata"]> }): void {
-    const envelope: PersistedTaskJarStateV2 = {
-      schemaVersion: 2,
-      tasks: state.tasks,
-      jars: state.jars,
-      settings: state.settings,
-      metadata: { migratedAt: state.metadata?.migratedAt, lastSavedAt: Date.now() },
-    }
+    const envelope: PersistedTaskJarStateV2 = { schemaVersion: 2, tasks: state.tasks, jars: state.jars, settings: state.settings, metadata: { migratedAt: state.metadata?.migratedAt, lastSavedAt: Date.now() } }
     localStorage.setItem(STATE_KEY, JSON.stringify(envelope))
+    // Keep the original workspace components, analytics and JSON backup tools compatible.
+    localStorage.setItem(LEGACY.tasks, JSON.stringify(state.tasks))
+    localStorage.setItem(LEGACY.jars, JSON.stringify(state.jars))
+    localStorage.setItem(LEGACY.settings, JSON.stringify(state.settings))
   }
 }
