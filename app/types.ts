@@ -1,16 +1,24 @@
+export type Priority = "urgent" | "scheduled" | "optional"
+export type Difficulty = "light" | "standard" | "challenging"
+export type TaskSource = "manual" | "daily-ai" | "weekly-ai"
+export type LocalModelId = "gemma-270m" | "gemma-1b"
+
 export interface Task {
   id: string
   name: string
   description: string
-  priority: "urgent" | "scheduled" | "optional"
-  difficulty: "light" | "standard" | "challenging"
+  priority: Priority
+  difficulty: Difficulty
   priorityEmoji: string
   difficultyEmoji: string
   xpValue: number
   completed: boolean
   completedAt?: number
   createdAt: number
+  /** Local date key in yyyy-MM-dd format. */
   scheduledFor?: string
+  source?: TaskSource
+  originalPrompt?: string
 }
 
 export interface Jar {
@@ -32,25 +40,22 @@ export interface AppSettings {
   }
   jarTarget: number
   emojis: {
-    priority: {
-      urgent: string
-      scheduled: string
-      optional: string
-    }
-    difficulty: {
-      light: string
-      standard: string
-      challenging: string
-    }
-  }
-  parentLock: {
-    enabled: boolean
-    password: string
-    securityQuestion: string
-    securityAnswer: string
+    priority: Record<Priority, string>
+    difficulty: Record<Difficulty, string>
   }
   preferences: {
     soundEnabled: boolean
-    theme: string
+    theme: "dark"
   }
+  localAI: {
+    selectedModelId: LocalModelId
+  }
+}
+
+export interface GeneratedTask {
+  name: string
+  description: string
+  priority: Priority
+  difficulty: Difficulty
+  scheduledFor?: string
 }
