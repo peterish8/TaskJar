@@ -1,10 +1,19 @@
 # TaskJar Local
 
-TaskJar is a private, voice-first, local-first task planner. It has no authentication flow, no cloud database, and no server-side AI dependency.
+TaskJar is a free, private, voice-first, client-side AI task planner. It has no authentication flow, no Supabase project, no cloud database, no subscription, and no server-side AI dependency.
+
+## What stays local
+
+- Tasks, subtasks, dates, progress, settings, jars, XP, and actual-time history are stored in this browser.
+- Microphone audio is processed inside the browser and is not uploaded by TaskJar.
+- AI planning runs through optional browser-downloaded models or the deterministic offline rules planner.
+- Journey exports are created locally as Markdown files.
+
+The app does download public runtime/model files from CDN and Hugging Face sources when a user enables local speech or installs a local planning model. Those downloads contain no personal TaskJar data.
 
 ## Core workflow
 
-1. Open the local workspace directly.
+1. Open the local workspace directly—no login.
 2. Speak naturally or type a brain dump.
 3. Edit the transcript before planning.
 4. Review every proposed task, time, duration, priority, difficulty, energy level, and subtask.
@@ -16,7 +25,7 @@ TaskJar is a private, voice-first, local-first task planner. It has no authentic
 
 ### Speech
 
-Voice capture records PCM through an AudioWorklet and sends it only to a browser Web Worker. The worker uses Transformers.js with `onnx-community/whisper-tiny.en`, running through WebGPU when available and WASM otherwise. Model files are cached by the browser. Raw microphone audio is not uploaded by TaskJar.
+Voice capture records PCM through an AudioWorklet and sends it only to a browser Web Worker. The worker uses Transformers.js with `onnx-community/whisper-tiny.en`, running through WebGPU when available and WASM otherwise. Model files are cached by the browser.
 
 ### Task planning
 
@@ -29,11 +38,11 @@ A deterministic offline planner remains available without a downloaded LLM or We
 
 ## Local data
 
-- Tasks, settings, subtasks, timing metadata, actual duration, and jar progress use browser storage.
 - Daily planning includes overdue carry-over tasks.
 - Weekly planning uses exact `yyyy-MM-dd` dates.
 - Persisted task data is migrated to schema version 2.
 - Full voice transcripts are not retained in accepted task history; only short source excerpts may be kept for timing explainability.
+- Clearing browser site data removes the workspace and downloaded model caches for that browser profile.
 
 ## Development
 
@@ -50,7 +59,7 @@ pnpm typecheck
 pnpm build
 ```
 
-TaskJar currently pins Next.js `15.5.21`, the July 2026 maintenance-LTS security release.
+TaskJar pins Next.js `15.5.21`, the July 2026 maintenance-LTS security release.
 
 ## Planning documentation
 
